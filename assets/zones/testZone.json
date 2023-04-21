@@ -11,8 +11,8 @@
 					"y": 100
 				},
 				"scale": {
-					"x": 0.5,
-					"y": 0.5
+					"x": 0.4,
+					"y": 0.4
 				}
 			},
 			"components": [
@@ -20,10 +20,17 @@
 					"name": "catAnimatedSprite",
 					"type": "animatedSprite",
 					"materialName": "cat",
-					"frameWidth": 1000,
-					"frameHeight": 1000,
-					"frameCount": 3,
-					"frameSequence": [0,1,2]
+					"frameWidth": 240,
+					"frameHeight": 314,
+					"frameCount": 6,
+					"frameSequence": [0,1,2,3,4,5]
+				}
+			],
+			"behaviors": [
+				{
+					"name": "movementBehavior",
+					"type": "keyboardMovement",
+					"speed": "2.5"
 				}
 			]
 		},
@@ -69,7 +76,7 @@
 					"name": "rotateX",
 					"type": "rotation",
 					"rotation": {
-						"z": 0.01
+						"z": 0.05
 					}
 				}
 			]

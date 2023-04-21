@@ -174,6 +174,81 @@ var TSE;
 })(TSE || (TSE = {}));
 var TSE;
 (function (TSE) {
+    var SoundEffect = /** @class */ (function () {
+        function SoundEffect(assetPath, loop) {
+            this._player = new Audio(assetPath);
+            this._player.loop = loop;
+        }
+        Object.defineProperty(SoundEffect.prototype, "loop", {
+            get: function () {
+                return this._player.loop;
+            },
+            set: function (value) {
+                this._player.loop = value;
+            },
+            enumerable: false,
+            configurable: true
+        });
+        SoundEffect.prototype.destroy = function () {
+            this._player = undefined;
+        };
+        SoundEffect.prototype.play = function () {
+            // stop the audio if it hasn't finished
+            if (!this._player.paused) {
+                this.stop();
+            }
+            this._player.play();
+        };
+        SoundEffect.prototype.pause = function () {
+            this._player.pause();
+        };
+        // no stop() function exists
+        SoundEffect.prototype.stop = function () {
+            this._player.pause();
+            this._player.currentTime = 0;
+        };
+        return SoundEffect;
+    }());
+    TSE.SoundEffect = SoundEffect;
+    var AudioManager = /** @class */ (function () {
+        function AudioManager() {
+        }
+        // load sound files can be accessible from anywhere
+        AudioManager.loadSoundFile = function (name, assetPath, loop) {
+            AudioManager._soundEffects[name] = new SoundEffect(assetPath, loop);
+        };
+        AudioManager.playSound = function (name) {
+            if (AudioManager._soundEffects[name] !== undefined) {
+                AudioManager._soundEffects[name].play();
+            }
+        };
+        AudioManager.pauseSound = function (name) {
+            if (AudioManager._soundEffects[name] !== undefined) {
+                AudioManager._soundEffects[name].pause();
+            }
+        };
+        AudioManager.pauseAll = function () {
+            for (var sfx in AudioManager._soundEffects) {
+                AudioManager._soundEffects[sfx].pause();
+            }
+        };
+        AudioManager.stopSound = function (name) {
+            if (AudioManager._soundEffects[name] !== undefined) {
+                AudioManager._soundEffects[name].stop();
+            }
+        };
+        AudioManager.stopAll = function () {
+            for (var sfx in AudioManager._soundEffects) {
+                AudioManager._soundEffects[sfx].stop();
+            }
+        };
+        AudioManager._soundEffects = {};
+        return AudioManager;
+    }());
+    TSE.AudioManager = AudioManager;
+})(TSE || (TSE = {}));
+var TSE;
+(function (TSE) {
     var BaseBehavior = /** @class */ (function () {
         function BaseBehavior(data) {
             this._data = data;
@@ -216,6 +291,75 @@ var TSE;
         return BehaviorManager;
     }());
     TSE.BehaviorManager = BehaviorManager;
+})(TSE || (TSE = {}));
+/// <reference path="basebehavior.ts" />
+/// <reference path="behaviormanager.ts" />
+var TSE;
+(function (TSE) {
+    var KeyboardMovementBehaviorData = /** @class */ (function () {
+        function KeyboardMovementBehaviorData() {
+            this.speed = 0.1;
+        }
+        /* load information from json */
+        KeyboardMovementBehaviorData.prototype.setFromJson = function (json) {
+            if (json.name === undefined) {
+                throw new Error("Name must be defined in behavior data.");
+            }
+            this.name = String(json.name);
+            if (json.name !== undefined) {
+                this.speed = Number(json.speed);
+            }
+        };
+        return KeyboardMovementBehaviorData;
+    }());
+    TSE.KeyboardMovementBehaviorData = KeyboardMovementBehaviorData;
+    var KeyboardMovementBehaviorBuilder = /** @class */ (function () {
+        function KeyboardMovementBehaviorBuilder() {
+        }
+        Object.defineProperty(KeyboardMovementBehaviorBuilder.prototype, "type", {
+            get: function () {
+                return "keyboardMovement";
+            },
+            enumerable: false,
+            configurable: true
+        });
+        KeyboardMovementBehaviorBuilder.prototype.buildFromJson = function (json) {
+            var data = new KeyboardMovementBehaviorData();
+            data.setFromJson(json);
+            return new KeyboardMovementBehavior(data);
+        };
+        return KeyboardMovementBehaviorBuilder;
+    }());
+    TSE.KeyboardMovementBehaviorBuilder = KeyboardMovementBehaviorBuilder;
+    /* handles rotation behavior of objects */
+    var KeyboardMovementBehavior = /** @class */ (function (_super) {
+        __extends(KeyboardMovementBehavior, _super);
+        function KeyboardMovementBehavior(data) {
+            var _this = _super.call(this, data) || this;
+            _this.speed = 0.1;
+            _this.speed = data.speed;
+            return _this;
+        }
+        KeyboardMovementBehavior.prototype.update = function (time) {
+            if (TSE.InputManager.isKeyDown(TSE.Keys.LEFT)) {
+                this._owner.transform.position.x -= this.speed;
+            }
+            if (TSE.InputManager.isKeyDown(TSE.Keys.RIGHT)) {
+                this._owner.transform.position.x += this.speed;
+            }
+            if (TSE.InputManager.isKeyDown(TSE.Keys.UP)) {
+                this._owner.transform.position.y -= this.speed;
+            }
+            if (TSE.InputManager.isKeyDown(TSE.Keys.DOWN)) {
+                this._owner.transform.position.y += this.speed;
+            }
+            _super.prototype.update.call(this, time);
+        };
+        return KeyboardMovementBehavior;
+    }(TSE.BaseBehavior));
+    TSE.KeyboardMovementBehavior = KeyboardMovementBehavior;
+    // auto register
+    TSE.BehaviorManager.registerBuilder(new KeyboardMovementBehaviorBuilder());
 })(TSE || (TSE = {}));
 /// <reference path="basebehavior.ts" />
 /// <reference path="behaviormanager.ts" />
@@ -482,8 +626,6 @@ var TSE;
 (function (TSE) {
     // exporting allows us to reference the class in other files
     var Engine = /** @class */ (function () {
-        /*private _basicShader: Shader;
-        private _projection: Matrix4x4;REMOVE*/
         // typescript has three levels of scope (public, private, protected)
         function Engine() {
             this._previousTime = 0;
@@ -492,15 +634,20 @@ var TSE;
             this._canvas = TSE.GLUtilities.initialize();
             // initialize assets and zones
             TSE.AssetManager.initialize();
+            TSE.InputManager.initialize();
             TSE.ZoneManager.initialize();
+            TSE.Message.subscribe("MOUSE_UP", this);
             // what color the webgl will be cleared to for every frame
             TSE.gl.clearColor(0, 0, 0, 1);
+            TSE.gl.enable(TSE.gl.BLEND);
+            TSE.gl.blendFunc(TSE.gl.SRC_ALPHA, TSE.gl.ONE_MINUS_SRC_ALPHA);
             this._basicShader = new TSE.BasicShader();
             this._basicShader.use();
             this._projection = TSE.Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
             // load materials
             TSE.MaterialManager.registerMaterial(new TSE.Material("leaves", "assets/textures/dk64-leaves.png", TSE.Color.white()));
-            TSE.MaterialManager.registerMaterial(new TSE.Material("cat", "assets/textures/catrun.jpg", TSE.Color.white()));
+            TSE.MaterialManager.registerMaterial(new TSE.Material("cat", "assets/textures/bird.png", TSE.Color.white()));
+            TSE.AudioManager.loadSoundFile("flap", "assets/sounds/birdflap.mp3", false);
             // load
             this._projection = TSE.Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
             // TEMPORARY
@@ -520,6 +667,13 @@ var TSE;
                 // give webgl a reference for the maximum area of the screen
                 TSE.gl.viewport(0, 0, TSE.gl.canvas.width, TSE.gl.canvas.height);
                 this._projection = TSE.Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
+            }
+        };
+        Engine.prototype.onMessage = function (message) {
+            if (message.code === "MOUSE_UP") {
+                var context = message.context;
+                document.title = 'Pos: [String(context.position.x},${context.position.y}]';
+                TSE.AudioManager.playSound('flap');
             }
         };
         Engine.prototype.loop = function () {
@@ -1044,6 +1198,7 @@ var TSE;
                 this._vertices[0].texCoords.copyFrom(this._frameUVs[frameUVs].min);
                 this._vertices[1].texCoords = new TSE.Vector2(this._frameUVs[frameUVs].min.x, this._frameUVs[frameUVs].max.y);
                 this._vertices[2].texCoords.copyFrom(this._frameUVs[frameUVs].max);
+                // broken for some reason 4,3,5
                 this._vertices[4].texCoords.copyFrom(this._frameUVs[frameUVs].max);
                 this._vertices[3].texCoords = new TSE.Vector2(this._frameUVs[frameUVs].max.x, this._frameUVs[frameUVs].min.y);
                 this._vertices[5].texCoords.copyFrom(this._frameUVs[frameUVs].min);
@@ -1061,26 +1216,28 @@ var TSE;
         };
         AnimatedSprite.prototype.calculateUVs = function () {
             var totalWidth = 0;
+            var xValue = 0;
             var yValue = 0;
             // cylce through each frame
             for (var i = 0; i < this._frameCount; i++) {
-                totalWidth += i * this._frameWidth;
+                totalWidth += this._frameWidth;
                 // track the y direction
                 if (totalWidth > this._assetWidth) {
                     yValue++;
                     totalWidth = 0;
+                    xValue = 0;
                 }
                 // normalize by the image size to get UV coordinates
-                var u = (i * this._frameWidth) / this._assetWidth;
+                var u = (xValue * this._frameWidth) / this._assetWidth;
                 var v = (yValue * this._frameHeight) / this._assetHeight;
                 var min = new TSE.Vector2(u, v);
                 // increment from the min position by the current frame widht and height
-                var uMax = ((i * this._frameWidth) + this._frameWidth) / this._assetWidth;
+                var uMax = ((xValue * this._frameWidth) + this._frameWidth) / this._assetWidth;
                 var vMax = ((yValue * this._frameHeight) + this._frameHeight) / this._assetHeight;
                 var max = new TSE.Vector2(uMax, vMax);
-                console.log("u/v max" + min.x + ", " + min.y);
                 // store the calculated UV coordinates
                 this._frameUVs.push(new UVInfo(min, max));
+                xValue++;
             }
         };
         return AnimatedSprite;
@@ -1516,6 +1673,106 @@ var TSE;
         return Vertex;
     }());
     TSE.Vertex = Vertex;
+})(TSE || (TSE = {}));
+var TSE;
+(function (TSE) {
+    /**
+     * keys that exist outside of the Input Manager
+     */
+    var Keys;
+    (function (Keys) {
+        Keys[Keys["LEFT"] = 37] = "LEFT";
+        Keys[Keys["UP"] = 38] = "UP";
+        Keys[Keys["RIGHT"] = 39] = "RIGHT";
+        Keys[Keys["DOWN"] = 40] = "DOWN";
+    })(Keys = TSE.Keys || (TSE.Keys = {}));
+    /**
+     * context of the mouse for sending messages
+     */
+    var MouseContext = /** @class */ (function () {
+        function MouseContext(leftDown, rightDown, position) {
+            this.leftDown = leftDown;
+            this.rightDown = rightDown;
+            this.position = position;
+        }
+        return MouseContext;
+    }());
+    TSE.MouseContext = MouseContext;
+    var InputManager = /** @class */ (function () {
+        function InputManager() {
+        }
+        InputManager.initialize = function () {
+            // default all keys to false, no input
+            for (var i = 0; i < 255; ++i) {
+                InputManager._keys[i] = false;
+            }
+            window.addEventListener("keydown", InputManager.onKeyDown);
+            window.addEventListener("keyup", InputManager.onKeyUp);
+            window.addEventListener("mousemove", InputManager.onMouseMove);
+            window.addEventListener("mousedown", InputManager.onMouseDown);
+            window.addEventListener("mouseup", InputManager.onMouseUp);
+        };
+        InputManager.isKeyDown = function (key) {
+            return InputManager._keys[key];
+        };
+        InputManager.getMousePosition = function () {
+            return new TSE.Vector2(InputManager._mouseX, InputManager._mouseY);
+        };
+        /**
+         * Capture our key events
+         */
+        InputManager.onKeyDown = function (event) {
+            InputManager._keys[event.keyCode] = true;
+            // cross browser way to say don't allow this event to be handled by anything else
+            event.preventDefault();
+            event.stopPropagation();
+            return false;
+        };
+        InputManager.onKeyUp = function (event) {
+            InputManager._keys[event.keyCode] = false;
+            // cross browser way to say don't allow this event to be handled by anything else
+            event.preventDefault();
+            event.stopPropagation();
+            return false;
+        };
+        /**
+         * capture the movement of the mouse
+         */
+        InputManager.onMouseMove = function (event) {
+            InputManager._previousMouseX = InputManager._mouseX;
+            InputManager._previousMouseY = InputManager._mouseY;
+            InputManager._mouseX = event.clientX;
+            InputManager._mouseY = event.clientY;
+        };
+        /**
+         * capture mouse buttons
+         */
+        InputManager.onMouseDown = function (event) {
+            // scrollwheel click is number 1
+            if (event.button === 0) {
+                this._leftDown = true;
+            }
+            else if (event.button === 2) {
+                this._rightDown = true;
+            }
+            TSE.Message.send("MOUSE_DOWN", this, new MouseContext(InputManager._leftDown, InputManager._rightDown, InputManager.getMousePosition()));
+        };
+        InputManager.onMouseUp = function (event) {
+            // scrollwheel click is number 1
+            if (event.button === 0) {
+                this._leftDown = false;
+            }
+            else if (event.button === 2) {
+                this._rightDown = false;
+            }
+            TSE.Message.send("MOUSE_UP", this, new MouseContext(InputManager._leftDown, InputManager._rightDown, InputManager.getMousePosition()));
+        };
+        InputManager._keys = [];
+        InputManager._leftDown = false;
+        InputManager._rightDown = false;
+        return InputManager;
+    }());
+    TSE.InputManager = InputManager;
 })(TSE || (TSE = {}));
 var TSE;
 (function (TSE) {

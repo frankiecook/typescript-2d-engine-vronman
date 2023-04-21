@@ -2,15 +2,13 @@
 namespace TSE {
 
 	// exporting allows us to reference the class in other files
-	export class Engine {
+	export class Engine implements IMessageHandler {
 
 		private _canvas: HTMLCanvasElement;
 		private _basicShader: BasicShader;
 
 		private _projection: Matrix4x4;
 		private _previousTime: number = 0;
-		/*private _basicShader: Shader;
-		private _projection: Matrix4x4;REMOVE*/
 
 		// typescript has three levels of scope (public, private, protected)
 		public constructor() {
@@ -23,10 +21,15 @@ namespace TSE {
 
 			// initialize assets and zones
 			AssetManager.initialize();
+			InputManager.initialize();
 			ZoneManager.initialize();
+
+			Message.subscribe("MOUSE_UP", this);
 
 			// what color the webgl will be cleared to for every frame
 			gl.clearColor(0, 0, 0, 1);
+			gl.enable(gl.BLEND);
+			gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
 			this._basicShader = new BasicShader(); 
 			this._basicShader.use();
@@ -35,7 +38,9 @@ namespace TSE {
 
 			// load materials
 			MaterialManager.registerMaterial(new Material("leaves", "assets/textures/dk64-leaves.png", Color.white()));
-			MaterialManager.registerMaterial(new Material("cat", "assets/textures/catrun.jpg", Color.white()));
+			MaterialManager.registerMaterial(new Material("cat", "assets/textures/bird.png", Color.white()));
+
+			AudioManager.loadSoundFile("flap", "assets/sounds/birdflap.mp3", false);
 
 			// load
 			this._projection = Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
@@ -61,6 +66,15 @@ namespace TSE {
 				// give webgl a reference for the maximum area of the screen
 				gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 				this._projection = Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
+			}
+		}
+
+		public onMessage(message: Message): void {
+			if (message.code === "MOUSE_UP") {
+				let context = message.context as MouseContext;
+				document.title = 'Pos: [String(context.position.x},${context.position.y}]';
+
+				AudioManager.playSound('flap');
 			}
 		}
 

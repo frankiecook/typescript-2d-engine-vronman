@@ -75,6 +75,7 @@
 		// draw method of sprite changes to use a model instead of a position variable
 		//
 		public draw(shader: Shader, model: Matrix4x4): void {
+
 			// take in a model matrix
 			let modelLocation = shader.getUniformLocation("u_model");
 			gl.uniformMatrix4fv(modelLocation, false, model.toFloat32Array());

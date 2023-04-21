@@ -1,0 +1,8 @@
+,
+			"behaviors": [
+				{
+					"name": "movementBehavior",
+					"type": "keyboardMovement",
+					"speed": "2.5"
+				}
+			]

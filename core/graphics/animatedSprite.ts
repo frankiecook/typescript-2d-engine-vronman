@@ -116,31 +116,35 @@ namespace TSE {
 
 		private calculateUVs(): void {
 			let totalWidth: number = 0;
+			let xValue: number = 0;
 			let yValue: number = 0;
 
 			// cylce through each frame
 			for (let i = 0; i < this._frameCount; i++) {
+				
+				totalWidth += this._frameWidth;
 
-				totalWidth += i * this._frameWidth;
 				// track the y direction
 				if (totalWidth > this._assetWidth) {
 					yValue++;
 					totalWidth = 0;
+					xValue = 0;
 				}
 
 				// normalize by the image size to get UV coordinates
-				let u = (i * this._frameWidth) / this._assetWidth;
+				let u = (xValue * this._frameWidth) / this._assetWidth;
 				let v = (yValue * this._frameHeight) / this._assetHeight;
 				let min: Vector2 = new Vector2(u, v);
 
 				// increment from the min position by the current frame widht and height
-				let uMax = ((i * this._frameWidth) + this._frameWidth) / this._assetWidth;
+				let uMax = ((xValue * this._frameWidth) + this._frameWidth) / this._assetWidth;
 				let vMax = ((yValue * this._frameHeight) + this._frameHeight) / this._assetHeight;
 				let max: Vector2 = new Vector2(uMax, vMax);
 
-				console.log("u/v max" + min.x+", "+ min.y);
 				// store the calculated UV coordinates
 				this._frameUVs.push(new UVInfo(min, max));
+
+				xValue++;
 			}
 		}
 	}
