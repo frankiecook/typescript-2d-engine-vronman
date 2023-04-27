@@ -476,6 +476,7 @@ var TSE;
 (function (TSE) {
     var SpriteComponenetData = /** @class */ (function () {
         function SpriteComponenetData() {
+            this.origin = TSE.Vector3.zero;
         }
         SpriteComponenetData.prototype.setFromJson = function (json) {
             if (json.name !== undefined) {
@@ -483,6 +484,9 @@ var TSE;
             }
             if (json.materialName !== undefined) {
                 this.materialName = String(json.materialName);
+            }
+            if (json.origin !== undefined) {
+                this.origin.setFromJson(json.origin);
             }
         };
         return SpriteComponenetData;
@@ -516,6 +520,10 @@ var TSE;
         function SpriteComponent(data) {
             var _this = _super.call(this, data) || this;
             _this._sprite = new TSE.Sprite(name, data.materialName);
+            // only run codee if origin is default values
+            if (data.origin.equals(TSE.Vector3.zero)) {
+                _this._sprite.origin.copyFrom(data.origin);
+            }
             return _this;
         }
         SpriteComponent.prototype.load = function () {
@@ -1034,6 +1042,7 @@ var TSE;
         function Sprite(name, materialName, width, height) {
             if (width === void 0) { width = 50; }
             if (height === void 0) { height = 50; }
+            this._origin = TSE.Vector3.zero;
             this._name = name;
             this._width = width;
             this._height = height;
@@ -1043,6 +1052,18 @@ var TSE;
         Object.defineProperty(Sprite.prototype, "name", {
             get: function () {
                 return this._name;
+            },
+            enumerable: false,
+            configurable: true
+        });
+        Object.defineProperty(Sprite.prototype, "origin", {
+            get: function () {
+                return this._origin;
+            },
+            set: function (value) {
+                this._origin = value;
+                // when origin is set
+                this.recalculateVertices();
             },
             enumerable: false,
             configurable: true
@@ -1065,22 +1086,7 @@ var TSE;
             texCoordAttribute.location = 1;
             texCoordAttribute.size = 2;
             this._buffer.addAttributeLocation(texCoordAttribute);
-            this._vertices = [
-                // x, y, z	, u, v
-                new TSE.Vertex(0, 0, 0, 0, 0),
-                new TSE.Vertex(0, this._height, 0, 0, 1.0),
-                new TSE.Vertex(this._width, this._height, 0, 1.0, 1.0),
-                new TSE.Vertex(this._width, 0, 0, 1.0, 0),
-                new TSE.Vertex(this._width, this._height, 0, 1.0, 1.0),
-                new TSE.Vertex(0, 0, 0, 0, 0)
-            ];
-            for (var _i = 0, _a = this._vertices; _i < _a.length; _i++) {
-                var v = _a[_i];
-                // hey wgl, we want to pass you info
-                this._buffer.pushBackData(v.toArray());
-            }
-            this._buffer.upload();
-            this._buffer.unbind();
+            this.calculateVertices();
         };
         Sprite.prototype.update = function (time) {
         };
@@ -1108,6 +1114,50 @@ var TSE;
             //gl.bindBuffer(gl.ARRAY_BUFFER, this._buffer);
             this._buffer.bind();
             this._buffer.draw();
+        };
+        Sprite.prototype.calculateVertices = function () {
+            // calculate offset from origin
+            var minX = -(this._width * this._origin.x);
+            var maxX = this._width * (1.0 - this._origin.x);
+            var minY = -(this._width * this._origin.y);
+            var maxY = this._width * (1.0 - this._origin.y);
+            this._vertices = [
+                // x, y, z	, u, v
+                new TSE.Vertex(minX, minY, 0, 0, 0),
+                new TSE.Vertex(minX, maxY, 0, 0, 1.0),
+                new TSE.Vertex(maxX, maxY, 0, 1.0, 1.0),
+                new TSE.Vertex(maxX, maxY, 0, 1.0, 0),
+                new TSE.Vertex(maxX, minY, 0, 1.0, 1.0),
+                new TSE.Vertex(minX, minY, 0, 0, 0)
+            ];
+            for (var _i = 0, _a = this._vertices; _i < _a.length; _i++) {
+                var v = _a[_i];
+                // hey wgl, we want to pass you info
+                this._buffer.pushBackData(v.toArray());
+            }
+            this._buffer.upload();
+            this._buffer.unbind();
+        };
+        Sprite.prototype.recalculateVertices = function () {
+            // calculate offset from origin
+            var minX = -(this._width * this._origin.x);
+            var maxX = this._width * (1.0 - this._origin.x);
+            var minY = -(this._width * this._origin.y);
+            var maxY = this._width * (1.0 - this._origin.y);
+            this._vertices[0].position.set(minX, minY);
+            this._vertices[1].position.set(minX, minY);
+            this._vertices[2].position.set(minX, minY);
+            this._vertices[3].position.set(minX, minY);
+            this._vertices[4].position.set(minX, minY);
+            this._vertices[5].position.set(minX, minY);
+            this._buffer.clearData();
+            for (var _i = 0, _a = this._vertices; _i < _a.length; _i++) {
+                var v = _a[_i];
+                // hey wgl, we want to pass you info
+                this._buffer.pushBackData(v.toArray());
+            }
+            this._buffer.upload();
+            this._buffer.unbind();
         };
         return Sprite;
     }());
@@ -1723,17 +1773,21 @@ var TSE;
          */
         InputManager.onKeyDown = function (event) {
             InputManager._keys[event.keyCode] = true;
+            return true;
+            // temporarily disabling and returning true
             // cross browser way to say don't allow this event to be handled by anything else
-            event.preventDefault();
-            event.stopPropagation();
-            return false;
+            //event.preventDefault();
+            //event.stopPropagation();
+            //return false;
         };
         InputManager.onKeyUp = function (event) {
             InputManager._keys[event.keyCode] = false;
+            return true;
+            // temporarily disabling and returning true
             // cross browser way to say don't allow this event to be handled by anything else
-            event.preventDefault();
-            event.stopPropagation();
-            return false;
+            //event.preventDefault();
+            //event.stopPropagation();
+            //return false;
         };
         /**
          * capture the movement of the mouse
@@ -2094,6 +2148,25 @@ var TSE;
             enumerable: false,
             configurable: true
         });
+        Vector3.prototype.set = function (x, y, z) {
+            if (x !== undefined) {
+                this._x = x;
+            }
+            if (y !== undefined) {
+                this._y = y;
+            }
+            if (z !== undefined) {
+                this._z = z;
+            }
+        };
+        /**
+         * check ifthis vector is equal to the one passed in
+         * @param v
+         * @returns
+         */
+        Vector3.prototype.equals = function (v) {
+            return (this.x === v.x && this.y === v.y && this.z === v.z);
+        };
         Object.defineProperty(Vector3, "zero", {
             // you DO NOT want to create this returned vector statically and simply return it
             // if you did, then the same reference would be used all over the code

@@ -42,8 +42,8 @@
 					"y": 300
 				},
 				"scale": {
-					"x": 0.5,
-					"y": 0.5
+					"x": 2,
+					"y": 2
 				}
 			},
 			"children": [
@@ -59,7 +59,20 @@
 						{
 							"name": "test",
 							"type": "sprite",
-							"materialName": "leaves"
+							"materialName": "leaves",
+							"origin": {
+								"x": 0.5,
+								"y": 0.5
+							}
+						}
+					],
+					"behaviors": [
+						{
+							"name": "rotateX",
+							"type": "rotation",
+							"rotation": {
+								"z": 0.04
+							}
 						}
 					]
 				}
@@ -68,7 +81,11 @@
 				{
 					"name": "test",
 					"type": "sprite",
-					"materialName": "leaves"
+					"materialName": "leaves",
+					"origin": {
+						"x": 0.5,
+						"y": 0.5
+					}
 				}
 			],
 			"behaviors": [
@@ -76,7 +93,7 @@
 					"name": "rotateX",
 					"type": "rotation",
 					"rotation": {
-						"z": 0.05
+						"z": 0.01
 					}
 				}
 			]

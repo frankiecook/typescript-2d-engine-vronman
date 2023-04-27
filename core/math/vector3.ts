@@ -36,6 +36,29 @@
 			this._z = value;
 		}
 
+		public set(x?: number, y?: number, z?: number): void {
+			if (x !== undefined) {
+				this._x = x;
+			}
+
+			if (y !== undefined) {
+				this._y = y;
+			}
+
+			if (z !== undefined) {
+				this._z = z;
+			}
+		}
+
+		/**
+		 * check ifthis vector is equal to the one passed in
+		 * @param v
+		 * @returns
+		 */
+		public equals(v: Vector3): boolean {
+			return (this.x === v.x && this.y === v.y && this.z === v.z);
+		}
+
 		// you DO NOT want to create this returned vector statically and simply return it
 		// if you did, then the same reference would be used all over the code
 		public static get zero(): Vector3 {

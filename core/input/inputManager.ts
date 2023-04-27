@@ -60,20 +60,22 @@
 		 */
 		private static onKeyDown(event: KeyboardEvent): boolean {
 			InputManager._keys[event.keyCode] = true;
-
+			return true;
+			// temporarily disabling and returning true
 			// cross browser way to say don't allow this event to be handled by anything else
-			event.preventDefault();
-			event.stopPropagation();
-			return false;
+			//event.preventDefault();
+			//event.stopPropagation();
+			//return false;
 		}
 
 		private static onKeyUp(event: KeyboardEvent): boolean {
 			InputManager._keys[event.keyCode] = false;
-
+			return true;
+			// temporarily disabling and returning true
 			// cross browser way to say don't allow this event to be handled by anything else
-			event.preventDefault();
-			event.stopPropagation();
-			return false;
+			//event.preventDefault();
+			//event.stopPropagation();
+			//return false;
 		}
 
 		/**
