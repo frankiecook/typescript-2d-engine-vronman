@@ -12,13 +12,13 @@
 		 * looks at the componenet managers regeristerd builders
 		 */
 		public static extractComponent(json: any): IComponent {
-			if (json.type != undefined) {
+			if (json.type !== undefined) {
 				if (ComponentManager._registeredBuilders[String(json.type)] !== undefined) {
 					return ComponentManager._registeredBuilders[String(json.type)].buildFromJson(json);
 				}
-
-				throw new Error("COMponent mamanger error - type is missing or buildwer is not registered for this type.")
 			}
+
+			throw new Error("COMponent mamanger error - type is missing or buildwer is not registered for this type.")
 		}
 	}
 }

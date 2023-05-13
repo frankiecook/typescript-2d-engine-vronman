@@ -90,6 +90,7 @@ namespace TSE {
 
 			MessageBus.update(delta);
 			ZoneManager.update(delta);
+			CollisionManager.update(delta);
 
 			this._previousTime = performance.now();
 		}

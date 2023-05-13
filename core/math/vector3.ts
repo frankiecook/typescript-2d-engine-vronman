@@ -69,6 +69,11 @@
 			return new Vector3(1, 1, 1);
 		}
 
+		public static distance(a: Vector3, b: Vector3): number {
+			let diff = a.clone().subtract(b);
+			return Math.sqrt(diff.x * diff.x + diff.y * diff.y + diff.z * diff.z);
+		}
+
 		public toArray(): number[] {
 			return [this._x, this._y, this._z];
 		}
@@ -128,6 +133,14 @@
 			this._z /= v._z;
 
 			return this;
+		}
+
+		public clone(): Vector3 {
+			return new Vector3(this._x, this._y, this._z);
+		}
+
+		public toVector2(): Vector2 {
+			return new Vector2(this._x, this._y);
 		}
 	}
 }

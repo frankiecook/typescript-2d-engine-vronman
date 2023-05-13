@@ -16,6 +16,7 @@ namespace TSE {
 				this.materialName = String(json.materialName);
 			}
 
+			// set origin from json
 			if (json.origin !== undefined) {
 				this.origin.setFromJson(json.origin);
 			}
@@ -49,7 +50,7 @@ namespace TSE {
 			this._sprite = new Sprite(name, data.materialName);
 
 			// only run code if origin is default values
-			if (data.origin.equals(Vector3.zero)) {
+			if (!data.origin.equals(Vector3.zero)) {
 				this._sprite.origin.copyFrom(data.origin);
 			}
 		}

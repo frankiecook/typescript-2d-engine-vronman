@@ -422,6 +422,103 @@ var TSE;
 })(TSE || (TSE = {}));
 var TSE;
 (function (TSE) {
+    var CollisionData = /** @class */ (function () {
+        function CollisionData(time, a, b) {
+            this.time = time;
+            this.a = a;
+            this.b = b;
+        }
+        return CollisionData;
+    }());
+    var CollisionManager = /** @class */ (function () {
+        function CollisionManager() {
+        }
+        CollisionManager.registerCollisionComponent = function (component) {
+            CollisionManager._components.push(component);
+        };
+        CollisionManager.unRegisterCollisionComponent = function (component) {
+            var index = CollisionManager._components.indexOf(component);
+            if (index !== -1) {
+                CollisionManager._components.slice(index, 1);
+            }
+        };
+        CollisionManager.clear = function () {
+            CollisionManager._components.length = 0;
+        };
+        /**
+         * check for collision with each collision component
+         * @param time
+         */
+        CollisionManager.update = function (time) {
+            // inefficient way of checking against all other components in the scene
+            // okay solution for now [sweep type method instead]
+            CollisionManager._totalTime += time;
+            for (var c = 0; c < CollisionManager._components.length; ++c) {
+                var comp = CollisionManager._components[c];
+                for (var o = 0; o < CollisionManager._components.length; ++o) {
+                    var other = CollisionManager._components[o];
+                    // do not check against collisions with self
+                    if (comp === other) {
+                        continue;
+                    }
+                    if (comp.shape.intersect(other.shape)) {
+                        // we have a collision!
+                        var exists = false;
+                        for (var d = 0; d < CollisionManager._collisionData.length; ++d) {
+                            var data = CollisionManager._collisionData[d];
+                            // two conditions for exisiting collision data
+                            if ((data.a === comp && data.b === other) || (data.a === other || data.b === comp)) {
+                                // we have exisitng data. update it.
+                                // onCollisionUpdate
+                                comp.onCollisionUpdate(other);
+                                other.onCollisionUpdate(comp);
+                                data.time = CollisionManager._totalTime;
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (!exists) {
+                            // create a new collision
+                            var col = new CollisionData(CollisionManager._totalTime, comp, other);
+                            comp.onCollisionEntry(other);
+                            other.onCollisionEntry(comp);
+                            this._collisionData.push(col);
+                        }
+                    }
+                }
+            }
+            /**
+             * locate collisions from the previous frame and delete them
+             */
+            var removeData = [];
+            for (var d = 0; d < CollisionManager._collisionData.length; ++d) {
+                var data = CollisionManager._collisionData[d];
+                if (data.time !== CollisionManager._totalTime) {
+                    // old collision data
+                    removeData.push(data);
+                    data.a.onCollisionExit(data.b);
+                    data.a.onCollisionExit(data.a);
+                }
+            }
+            // remove the stale data
+            while (removeData.length !== 0) {
+                var index = CollisionManager._collisionData.indexOf(removeData[0]);
+                CollisionManager._collisionData.splice(index, 1);
+                removeData.shift();
+            }
+            // temporary hack
+            document.title = CollisionManager._collisionData.length.toString();
+        };
+        CollisionManager._totalTime = 0;
+        CollisionManager._components = [];
+        CollisionManager._collisionData = [];
+        return CollisionManager;
+    }());
+    TSE.CollisionManager = CollisionManager;
+})(TSE || (TSE = {}));
+// 37:23
+var TSE;
+(function (TSE) {
     var ComponentManager = /** @class */ (function () {
         function ComponentManager() {
         }
@@ -432,12 +529,12 @@ var TSE;
          * looks at the componenet managers regeristerd builders
          */
         ComponentManager.extractComponent = function (json) {
-            if (json.type != undefined) {
+            if (json.type !== undefined) {
                 if (ComponentManager._registeredBuilders[String(json.type)] !== undefined) {
                     return ComponentManager._registeredBuilders[String(json.type)].buildFromJson(json);
                 }
-                throw new Error("COMponent mamanger error - type is missing or buildwer is not registered for this type.");
             }
+            throw new Error("COMponent mamanger error - type is missing or buildwer is not registered for this type.");
         };
         ComponentManager._registeredBuilders = {};
         return ComponentManager;
@@ -485,6 +582,7 @@ var TSE;
             if (json.materialName !== undefined) {
                 this.materialName = String(json.materialName);
             }
+            // set origin from json
             if (json.origin !== undefined) {
                 this.origin.setFromJson(json.origin);
             }
@@ -520,8 +618,8 @@ var TSE;
         function SpriteComponent(data) {
             var _this = _super.call(this, data) || this;
             _this._sprite = new TSE.Sprite(name, data.materialName);
-            // only run codee if origin is default values
-            if (data.origin.equals(TSE.Vector3.zero)) {
+            // only run code if origin is default values
+            if (!data.origin.equals(TSE.Vector3.zero)) {
                 _this._sprite.origin.copyFrom(data.origin);
             }
             return _this;
@@ -629,6 +727,115 @@ var TSE;
     // as soon as file is loaded, register
     TSE.ComponentManager.registerBuilder(new AnimatedSpriteComponentBuilder());
 })(TSE || (TSE = {}));
+/// <reference path="componentmanager.ts" />
+var TSE;
+(function (TSE) {
+    var CollisionComponentData = /** @class */ (function () {
+        function CollisionComponentData() {
+        }
+        CollisionComponentData.prototype.setFromJson = function (json) {
+            if (json.name !== undefined) {
+                this.name = String(json.name);
+            }
+            // check if shape exists
+            if (json.shape === undefined) {
+                throw new Error("CollisionComponenetData requires 'shape' to be present.");
+            }
+            else {
+                // check if type of shape exist (rectangle, circle, etc.)
+                if (json.shape.type === undefined) {
+                    throw new Error("CollsiionComponentData requires 'shape.type' to be present.");
+                }
+                var shapeType = String(json.shape.type).toLowerCase();
+                switch (shapeType) {
+                    case "rectangle":
+                        this.shape = new TSE.Rectangle2D();
+                        break;
+                    case "circle":
+                        this.shape = new TSE.Circle2D();
+                        break;
+                    default:
+                        throw new Error("Unsupported shape type: '" + shapeType + ";.");
+                }
+            }
+            this.shape.setFromJson(json.shape);
+        };
+        return CollisionComponentData;
+    }());
+    TSE.CollisionComponentData = CollisionComponentData;
+    /**
+     * construct a componenet using the data read from JSON
+     * built indepedently of all pieces to allow for any number of componentst to be created
+     */
+    var CollisionComponentBuilder = /** @class */ (function () {
+        function CollisionComponentBuilder() {
+        }
+        Object.defineProperty(CollisionComponentBuilder.prototype, "type", {
+            // For whatever is looking at this, this is the type of the data
+            get: function () {
+                return "collision";
+            },
+            enumerable: false,
+            configurable: true
+        });
+        CollisionComponentBuilder.prototype.buildFromJson = function (json) {
+            var data = new CollisionComponentData();
+            data.setFromJson(json);
+            return new CollisionComponent(data);
+        };
+        return CollisionComponentBuilder;
+    }());
+    TSE.CollisionComponentBuilder = CollisionComponentBuilder;
+    var CollisionComponent = /** @class */ (function (_super) {
+        __extends(CollisionComponent, _super);
+        function CollisionComponent(data) {
+            var _this = _super.call(this, data) || this;
+            _this._shape = data.shape;
+            return _this;
+        }
+        Object.defineProperty(CollisionComponent.prototype, "shape", {
+            get: function () {
+                return this._shape;
+            },
+            enumerable: false,
+            configurable: true
+        });
+        CollisionComponent.prototype.load = function () {
+            _super.prototype.load.call(this);
+            // TODO: update this to handle nested objects
+            this._shape.position.copyFrom(this.owner.transform.position.toVector2());
+            // tell the collision manager that we exist
+            TSE.CollisionManager.registerCollisionComponent(this);
+        };
+        /**
+         * Grab the shape's position and add to the owner's transform position
+         * @returns
+         */
+        CollisionComponent.prototype.update = function (time) {
+            // TODO: update this to handle nested objects
+            this._shape.position.copyFrom(this.owner.transform.position.toVector2().add(this._shape.offset));
+            _super.prototype.update.call(this, time);
+        };
+        //** Collsiion boxes do not render, except for debugging */
+        CollisionComponent.prototype.render = function (shader) {
+            //this._sprite.draw(shader, this.owner.worldMatrix);
+            _super.prototype.render.call(this, shader);
+        };
+        CollisionComponent.prototype.onCollisionEntry = function (other) {
+            console.log("onCollisionEntry: ", this, other);
+        };
+        CollisionComponent.prototype.onCollisionUpdate = function (other) {
+            console.log("onCollisionUpdate: ", this, other);
+        };
+        CollisionComponent.prototype.onCollisionExit = function (other) {
+            console.log("onCollisionExit: ", this, other);
+        };
+        return CollisionComponent;
+    }(TSE.BaseComponent));
+    TSE.CollisionComponent = CollisionComponent;
+    // as soon as file is loaded, register
+    TSE.ComponentManager.registerBuilder(new CollisionComponentBuilder());
+})(TSE || (TSE = {}));
 // namespaces organize objects and class in the project
 var TSE;
 (function (TSE) {
@@ -694,6 +901,7 @@ var TSE;
             var delta = performance.now() - this._previousTime;
             TSE.MessageBus.update(delta);
             TSE.ZoneManager.update(delta);
+            TSE.CollisionManager.update(delta);
             this._previousTime = performance.now();
         };
         Engine.prototype.render = function () {
@@ -1527,6 +1735,118 @@ var TSE;
 })(TSE || (TSE = {}));
 var TSE;
 (function (TSE) {
+    var Circle2D = /** @class */ (function () {
+        function Circle2D() {
+            this.position = TSE.Vector2.zero;
+            // temporary fix for boundary positions
+            this.offset = TSE.Vector2.zero;
+        }
+        /**
+         * set values from json
+         * @param json
+         */
+        Circle2D.prototype.setFromJson = function (json) {
+            if (json.position !== undefined) {
+                this.position.setFromJson(json.position);
+            }
+            if (json.offset !== undefined) {
+                this.offset.setFromJson(json.offset);
+            }
+            if (json.radius === undefined) {
+                throw new Error("Rectangle2D requires radius to be present.");
+            }
+            this.radius = Number(json.radius);
+        };
+        // each individual shape is responsible for knowing how to collide with other shapes
+        Circle2D.prototype.intersect = function (other) {
+            // if the distance between both circles is less than the combines radius, then collsiion
+            if (other instanceof Circle2D) {
+                var distance = Math.abs(TSE.Vector2.distance(other.position, this.position));
+                var radiusLengths = this.radius + other.radius;
+                if (distance <= radiusLengths) {
+                    return true;
+                }
+            }
+            /**MISSING COLLISION INSTANCE OF RECTANGLES*/
+            // no colision
+            return false;
+        };
+        // check if a point is inside the shape
+        Circle2D.prototype.pointInShape = function (point) {
+            // calculate absolute distance
+            var absDistance = Math.abs(TSE.Vector2.distance(this.position, point));
+            if (absDistance <= this.radius) {
+                return true;
+            }
+            // if shape is unknown then don't intersect
+            return false;
+        };
+        return Circle2D;
+    }());
+    TSE.Circle2D = Circle2D;
+})(TSE || (TSE = {}));
+var TSE;
+(function (TSE) {
+    var Rectangle2D = /** @class */ (function () {
+        function Rectangle2D() {
+            this.position = TSE.Vector2.zero;
+            // temporary fix for boundary positions
+            this.offset = TSE.Vector2.zero;
+        }
+        Rectangle2D.prototype.setFromJson = function (json) {
+            if (json.position !== undefined) {
+                this.position.setFromJson(json.position);
+            }
+            if (json.width === undefined) {
+                throw new Error("Rectangle2D requires width to be present.");
+            }
+            this.width = Number(json.width);
+            if (json.height === undefined) {
+                throw new Error("Rectangle2D requires width to be present.");
+            }
+            this.height = Number(json.height);
+        };
+        // each individual shape is responsible for knowing how to collide with other shapes
+        Rectangle2D.prototype.intersect = function (other) {
+            // case when other shape is rectangle
+            if (other instanceof Rectangle2D) {
+                // check if any of the four corners of the bounding rectangle intersect
+                if (this.pointInShape(other.position) ||
+                    this.pointInShape(new TSE.Vector2(other.position.x + other.width, other.position.y)) ||
+                    this.pointInShape(new TSE.Vector2(other.position.x + other.width, other.position.y + other.height)) ||
+                    this.pointInShape(new TSE.Vector2(other.position.x, other.position.y + other.height))) {
+                    return true;
+                }
+            }
+            if (other instanceof TSE.Circle2D) {
+                // check if any of the four corners of the bounding rectangle intersect
+                if (other.pointInShape(this.position) ||
+                    other.pointInShape(new TSE.Vector2(this.position.x + this.width, this.position.y)) ||
+                    other.pointInShape(new TSE.Vector2(this.position.x + this.width, this.position.y + this.height)) ||
+                    other.pointInShape(new TSE.Vector2(this.position.x, this.position.y + this.height))) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        // check if a point is inside the shape
+        Rectangle2D.prototype.pointInShape = function (point) {
+            // check x axis
+            if (point.x >= this.position.x && point.x <= this.position.x + this.width) {
+                // check y axis
+                if (point.y >= this.position.y && point.y <= this.position.y + this.height) {
+                    return true;
+                }
+            }
+            // if shape is unknown then don't intersect
+            return false;
+        };
+        return Rectangle2D;
+    }());
+    TSE.Rectangle2D = Rectangle2D;
+})(TSE || (TSE = {}));
+var TSE;
+(function (TSE) {
     var LEVEL = 0;
     var BORDER = 0;
     // default image data will represent a single white pixel
@@ -2084,6 +2404,10 @@ var TSE;
             enumerable: false,
             configurable: true
         });
+        Vector2.distance = function (a, b) {
+            var diff = a.clone().subtract(b);
+            return Math.sqrt(diff.x * diff.x + diff.y * diff.y);
+        };
         Vector2.prototype.copyFrom = function (v) {
             this._x = v._x;
             this._y = v._y;
@@ -2102,6 +2426,29 @@ var TSE;
             if (json.y !== undefined) {
                 this._y = Number(json.y);
             }
+        };
+        Vector2.prototype.add = function (v) {
+            this._x += v._x;
+            this._y += v._y;
+            return this;
+        };
+        Vector2.prototype.subtract = function (v) {
+            this._x -= v._x;
+            this._y -= v._y;
+            return this;
+        };
+        Vector2.prototype.multiply = function (v) {
+            this._x *= v._x;
+            this._y *= v._y;
+            return this;
+        };
+        Vector2.prototype.divide = function (v) {
+            this._x /= v._x;
+            this._y /= v._y;
+            return this;
+        };
+        Vector2.prototype.clone = function () {
+            return new Vector2(this._x, this._y);
         };
         return Vector2;
     }());
@@ -2183,6 +2530,10 @@ var TSE;
             enumerable: false,
             configurable: true
         });
+        Vector3.distance = function (a, b) {
+            var diff = a.clone().subtract(b);
+            return Math.sqrt(diff.x * diff.x + diff.y * diff.y + diff.z * diff.z);
+        };
         Vector3.prototype.toArray = function () {
             return [this._x, this._y, this._z];
         };
@@ -2229,6 +2580,12 @@ var TSE;
             this._y /= v._y;
             this._z /= v._z;
             return this;
+        };
+        Vector3.prototype.clone = function () {
+            return new Vector3(this._x, this._y, this._z);
+        };
+        Vector3.prototype.toVector2 = function () {
+            return new TSE.Vector2(this._x, this._y);
         };
         return Vector3;
     }());
