@@ -4,8 +4,10 @@
 
 		position: Vector2;
 
+		origin: Vector2;
+
 		// temporary fix for boundary positions
-		offset: Vector2;
+		readonly offset: Vector2;
 
 		setFromJson(json: any): void;
 

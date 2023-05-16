@@ -5,9 +5,16 @@
 		public position: Vector2 = Vector2.zero;
 
 		// temporary fix for boundary positions
-		public offset: Vector2 = Vector2.zero;
+		public origin: Vector2 = Vector2.zero;
 
 		public radius: number;
+
+		/**
+		 * retrieve offset value
+		 */
+		public get offset(): Vector2 {
+			return new Vector2(this.radius + (this.radius * this.origin.x), this.radius + (this.radius * this.origin.y));
+		}
 
 		/**
 		 * set values from json
@@ -40,7 +47,14 @@
 				}
 			}
 
-			/**MISSING COLLISION INSTANCE OF RECTANGLES*/
+			if (other instanceof Rectangle2D) {
+				// check if any sides of the rectangle intersect with the circle
+				let deltaX = this.position.x - Math.max(other.position.x, Math.min(this.position.x, other.position.x + other.width));
+				let deltaY = this.position.y - Math.max(other.position.y, Math.min(this.position.y, other.position.y + other.width));
+				if ((deltaX * deltaX + deltaY * deltaY) < (this.radius * this.radius)) {
+					return true;
+				}
+			}
 
 			// no colision
 			return false;

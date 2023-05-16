@@ -516,7 +516,6 @@ var TSE;
     }());
     TSE.CollisionManager = CollisionManager;
 })(TSE || (TSE = {}));
-// 37:23
 var TSE;
 (function (TSE) {
     var ComponentManager = /** @class */ (function () {
@@ -803,7 +802,7 @@ var TSE;
         CollisionComponent.prototype.load = function () {
             _super.prototype.load.call(this);
             // TODO: update this to handle nested objects
-            this._shape.position.copyFrom(this.owner.transform.position.toVector2());
+            this._shape.position.copyFrom(this.owner.transform.position.toVector2().add(this._shape.offset));
             // tell the collision manager that we exist
             TSE.CollisionManager.registerCollisionComponent(this);
         };
@@ -1739,8 +1738,18 @@ var TSE;
         function Circle2D() {
             this.position = TSE.Vector2.zero;
             // temporary fix for boundary positions
-            this.offset = TSE.Vector2.zero;
+            this.origin = TSE.Vector2.zero;
         }
+        Object.defineProperty(Circle2D.prototype, "offset", {
+            /**
+             * retrieve offset value
+             */
+            get: function () {
+                return new TSE.Vector2(this.radius + (this.radius * this.origin.x), this.radius + (this.radius * this.origin.y));
+            },
+            enumerable: false,
+            configurable: true
+        });
         /**
          * set values from json
          * @param json
@@ -1767,7 +1776,14 @@ var TSE;
                     return true;
                 }
             }
-            /**MISSING COLLISION INSTANCE OF RECTANGLES*/
+            if (other instanceof TSE.Rectangle2D) {
+                // check if any sides of the rectangle intersect with the circle
+                var deltaX = this.position.x - Math.max(other.position.x, Math.min(this.position.x, other.position.x + other.width));
+                var deltaY = this.position.y - Math.max(other.position.y, Math.min(this.position.y, other.position.y + other.width));
+                if ((deltaX * deltaX + deltaY * deltaY) < (this.radius * this.radius)) {
+                    return true;
+                }
+            }
             // no colision
             return false;
         };
@@ -1791,11 +1807,24 @@ var TSE;
         function Rectangle2D() {
             this.position = TSE.Vector2.zero;
             // temporary fix for boundary positions
-            this.offset = TSE.Vector2.zero;
+            this.origin = new TSE.Vector2(0.5, 0.5);
         }
+        Object.defineProperty(Rectangle2D.prototype, "offset", {
+            /**
+             * provide offset value
+             */
+            get: function () {
+                return new TSE.Vector2(-(this.width * this.origin.x), -(this.height * this.origin.y));
+            },
+            enumerable: false,
+            configurable: true
+        });
         Rectangle2D.prototype.setFromJson = function (json) {
             if (json.position !== undefined) {
                 this.position.setFromJson(json.position);
+            }
+            if (json.offset !== undefined) {
+                this.offset.setFromJson(json.offset);
             }
             if (json.width === undefined) {
                 throw new Error("Rectangle2D requires width to be present.");
@@ -1819,11 +1848,10 @@ var TSE;
                 }
             }
             if (other instanceof TSE.Circle2D) {
-                // check if any of the four corners of the bounding rectangle intersect
-                if (other.pointInShape(this.position) ||
-                    other.pointInShape(new TSE.Vector2(this.position.x + this.width, this.position.y)) ||
-                    other.pointInShape(new TSE.Vector2(this.position.x + this.width, this.position.y + this.height)) ||
-                    other.pointInShape(new TSE.Vector2(this.position.x, this.position.y + this.height))) {
+                // check if any sides of the rectangle intersect with the circle
+                var deltaX = other.position.x - Math.max(this.position.x, Math.min(other.position.x, this.position.x + this.width));
+                var deltaY = other.position.y - Math.max(this.position.y, Math.min(other.position.y, this.position.y + this.width));
+                if ((deltaX * deltaX + deltaY * deltaY) < (other.radius * other.radius)) {
                     return true;
                 }
             }

@@ -5,15 +5,26 @@
 		public position: Vector2 = Vector2.zero;
 
 		// temporary fix for boundary positions
-		public offset: Vector2 = Vector2.zero;
+		public origin: Vector2 = new Vector2(0.5,0.5);
 
 		public width: number;
 
 		public height: number;
 
+		/**
+		 * provide offset value
+		 */
+		public get offset(): Vector2 {
+			return new Vector2(-(this.width * this.origin.x), -(this.height * this.origin.y));
+		}
+
 		public setFromJson(json: any): void {
 			if (json.position !== undefined) {
 				this.position.setFromJson(json.position);
+			}
+
+			if (json.offset !== undefined) {
+				this.offset.setFromJson(json.offset);
 			}
 
 			if (json.width === undefined) {
@@ -42,11 +53,10 @@
 			}
 
 			if (other instanceof Circle2D) {
-				// check if any of the four corners of the bounding rectangle intersect
-				if (other.pointInShape(this.position) ||
-					other.pointInShape(new Vector2(this.position.x + this.width, this.position.y)) ||
-					other.pointInShape(new Vector2(this.position.x + this.width, this.position.y + this.height)) ||
-					other.pointInShape(new Vector2(this.position.x, this.position.y + this.height))) {
+				// check if any sides of the rectangle intersect with the circle
+				let deltaX = other.position.x - Math.max(this.position.x, Math.min(other.position.x, this.position.x + this.width));
+				let deltaY = other.position.y - Math.max(this.position.y, Math.min(other.position.y, this.position.y + this.width));
+				if ((deltaX * deltaX + deltaY * deltaY) < (other.radius * other.radius)) {
 					return true;
 				}
 			}

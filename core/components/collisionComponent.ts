@@ -72,7 +72,7 @@ namespace TSE {
 			super.load();
 
 			// TODO: update this to handle nested objects
-			this._shape.position.copyFrom(this.owner.transform.position.toVector2());
+			this._shape.position.copyFrom(this.owner.transform.position.toVector2().add(this._shape.offset));
 
 			// tell the collision manager that we exist
 			CollisionManager.registerCollisionComponent(this);
