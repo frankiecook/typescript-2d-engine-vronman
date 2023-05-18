@@ -24,6 +24,10 @@
 
 		}
 
+		public updateReady(): void {
+
+		}
+
 		public update(time: number): void {
 
 		}

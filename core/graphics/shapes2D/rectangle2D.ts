@@ -15,7 +15,7 @@
 		 * provide offset value
 		 */
 		public get offset(): Vector2 {
-			return new Vector2(-(this.width * this.origin.x), -(this.height * this.origin.y));
+			return new Vector2((this.width * this.origin.x), (this.height * this.origin.y));
 		}
 
 		public setFromJson(json: any): void {
@@ -53,9 +53,8 @@
 			}
 
 			if (other instanceof Circle2D) {
-				// check if any sides of the rectangle intersect with the circle
 				let deltaX = other.position.x - Math.max(this.position.x, Math.min(other.position.x, this.position.x + this.width));
-				let deltaY = other.position.y - Math.max(this.position.y, Math.min(other.position.y, this.position.y + this.width));
+				let deltaY = other.position.y - Math.max(this.position.y, Math.min(other.position.y, this.position.y + this.height));
 				if ((deltaX * deltaX + deltaY * deltaY) < (other.radius * other.radius)) {
 					return true;
 				}

@@ -5,6 +5,8 @@
 
 		setOwner(owner: SimObject): void;
 
+		updateReady(): void;
+
 		update(time: number): void;
 
 		/* Behavior should be applied to the attached object 

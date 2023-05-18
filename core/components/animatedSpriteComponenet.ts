@@ -10,10 +10,15 @@ namespace TSE {
 		public frameHeight: number;
 		public frameCount: number;
 		public frameSequence: number[] = [];
+		public autoPlay: boolean = true;
 
 		// require all above properties to be present
 		public setFromJson(json: any): void {
 			super.setFromJson(json);
+
+			if (json.autoPlay !== undefined) {
+				this.autoPlay = Boolean(json.autoPlay);
+			}
 
 
 			if (json.frameWidth === undefined) {
@@ -61,16 +66,33 @@ namespace TSE {
 
 	export class AnimatedSpriteComponent extends BaseComponent {
 
+		private _autoPlay: boolean = true;
 		private _sprite: AnimatedSprite;
 
 		public constructor(data: AnimatedSpriteComponenetData) {
 			super(data);
 
+			this._autoPlay = data.autoPlay;
 			this._sprite = new AnimatedSprite(name, data.materialName, data.frameWidth, data.frameHeight, data.frameWidth, data.frameHeight, data.frameCount, data.frameSequence);
+			// only run code if origin is default values
+			if (!data.origin.equals(Vector3.zero)) {
+				this._sprite.origin.copyFrom(data.origin);
+			}
+		}
+
+		public isPlaying(): boolean {
+			return this._sprite.isPlaying;
 		}
 
 		public load(): void {
 			this._sprite.load();
+		}
+
+		public updateRead(): void {
+			// call stop on animation so it doesnt initiate
+			if (!this._autoPlay) {
+				this._sprite.stop();
+			}
 		}
 
 		public update(time: number): void {
@@ -83,6 +105,18 @@ namespace TSE {
 			this._sprite.draw(shader, this.owner.worldMatrix);
 
 			super.render(shader);
+		}
+
+		public play(): void {
+			this._sprite.play();
+		}
+
+		public stop(): void {
+			this._sprite.stop();
+		}
+
+		public setFrame(frameNumber: number): void {
+			this._sprite.setFrame(frameNumber);
 		}
 	}
 

@@ -4,9 +4,10 @@
 
 		name: string;
 
-		//owner(): SimObject;
-
+		readonly owner: SimObject;
 		setOwner(owner: SimObject): void;
+
+		updateReady(): void;
 
 		load(): void;
 

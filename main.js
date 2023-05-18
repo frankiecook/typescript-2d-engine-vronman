@@ -14,7 +14,7 @@ var __extends = (this && this.__extends) || (function () {
 var engine;
 // the main entry piont to the program
 window.onload = function () {
-    engine = new TSE.Engine();
+    engine = new TSE.Engine(320, 480);
     engine.start();
 };
 window.onresize = function () {
@@ -257,6 +257,8 @@ var TSE;
         BaseBehavior.prototype.setOwner = function (owner) {
             this._owner = owner;
         };
+        BaseBehavior.prototype.updateReady = function () {
+        };
         BaseBehavior.prototype.update = function (time) {
         };
         /* Behavior should be applied to the attached object
@@ -430,6 +432,7 @@ var TSE;
         }
         return CollisionData;
     }());
+    TSE.CollisionData = CollisionData;
     var CollisionManager = /** @class */ (function () {
         function CollisionManager() {
         }
@@ -482,6 +485,9 @@ var TSE;
                             var col = new CollisionData(CollisionManager._totalTime, comp, other);
                             comp.onCollisionEntry(other);
                             other.onCollisionEntry(comp);
+                            // two messages to whoever is listening to this collision
+                            TSE.Message.sendPriority("COLLISION_ENTRY:" + comp.name, this, col);
+                            TSE.Message.sendPriority("COLLISION_ENTRY:" + other.name, this, col);
                             this._collisionData.push(col);
                         }
                     }
@@ -496,18 +502,18 @@ var TSE;
                 if (data.time !== CollisionManager._totalTime) {
                     // old collision data
                     removeData.push(data);
-                    data.a.onCollisionExit(data.b);
-                    data.a.onCollisionExit(data.a);
                 }
             }
             // remove the stale data
             while (removeData.length !== 0) {
+                var data = removeData.shift();
                 var index = CollisionManager._collisionData.indexOf(removeData[0]);
                 CollisionManager._collisionData.splice(index, 1);
-                removeData.shift();
+                data.a.onCollisionExit(data.b);
+                data.a.onCollisionExit(data.a);
+                TSE.Message.sendPriority("COLLISION_EXIT:" + data.a.name, this, data);
+                TSE.Message.sendPriority("COLLISION_EXIT:" + data.b.name, this, data);
             }
-            // temporary hack
-            document.title = CollisionManager._collisionData.length.toString();
         };
         CollisionManager._totalTime = 0;
         CollisionManager._components = [];
@@ -532,8 +538,8 @@ var TSE;
                 if (ComponentManager._registeredBuilders[String(json.type)] !== undefined) {
                     return ComponentManager._registeredBuilders[String(json.type)].buildFromJson(json);
                 }
+                throw new Error("Component mamanger error - type is missing or buildwer is not registered for this type.");
             }
-            throw new Error("COMponent mamanger error - type is missing or buildwer is not registered for this type.");
         };
         ComponentManager._registeredBuilders = {};
         return ComponentManager;
@@ -559,6 +565,8 @@ var TSE;
         };
         BaseComponent.prototype.load = function () {
         };
+        BaseComponent.prototype.updateReady = function () {
+        };
         BaseComponent.prototype.update = function (time) {
         };
         BaseComponent.prototype.render = function (shader) {
@@ -577,6 +585,12 @@ var TSE;
         SpriteComponenetData.prototype.setFromJson = function (json) {
             if (json.name !== undefined) {
                 this.name = String(json.name);
+            }
+            if (json.width !== undefined) {
+                this.width = Number(json.width);
+            }
+            if (json.height !== undefined) {
+                this.height = Number(json.height);
             }
             if (json.materialName !== undefined) {
                 this.materialName = String(json.materialName);
@@ -616,7 +630,9 @@ var TSE;
         __extends(SpriteComponent, _super);
         function SpriteComponent(data) {
             var _this = _super.call(this, data) || this;
-            _this._sprite = new TSE.Sprite(name, data.materialName);
+            _this._width = data.width;
+            _this._height = data.height;
+            _this._sprite = new TSE.Sprite(name, data.materialName, _this._width, _this._height);
             // only run code if origin is default values
             if (!data.origin.equals(TSE.Vector3.zero)) {
                 _this._sprite.origin.copyFrom(data.origin);
@@ -646,11 +662,15 @@ var TSE;
         function AnimatedSpriteComponenetData() {
             var _this = _super !== null && _super.apply(this, arguments) || this;
             _this.frameSequence = [];
+            _this.autoPlay = true;
             return _this;
         }
         // require all above properties to be present
         AnimatedSpriteComponenetData.prototype.setFromJson = function (json) {
             _super.prototype.setFromJson.call(this, json);
+            if (json.autoPlay !== undefined) {
+                this.autoPlay = Boolean(json.autoPlay);
+            }
             if (json.frameWidth === undefined) {
                 throw new Error("AnimatedSpriteComponentData requires 'frameWidth' to be defined.");
             }
@@ -706,11 +726,26 @@ var TSE;
         __extends(AnimatedSpriteComponent, _super);
         function AnimatedSpriteComponent(data) {
             var _this = _super.call(this, data) || this;
+            _this._autoPlay = true;
+            _this._autoPlay = data.autoPlay;
             _this._sprite = new TSE.AnimatedSprite(name, data.materialName, data.frameWidth, data.frameHeight, data.frameWidth, data.frameHeight, data.frameCount, data.frameSequence);
+            // only run code if origin is default values
+            if (!data.origin.equals(TSE.Vector3.zero)) {
+                _this._sprite.origin.copyFrom(data.origin);
+            }
             return _this;
         }
+        AnimatedSpriteComponent.prototype.isPlaying = function () {
+            return this._sprite.isPlaying;
+        };
         AnimatedSpriteComponent.prototype.load = function () {
             this._sprite.load();
+        };
+        AnimatedSpriteComponent.prototype.updateRead = function () {
+            // call stop on animation so it doesnt initiate
+            if (!this._autoPlay) {
+                this._sprite.stop();
+            }
         };
         AnimatedSpriteComponent.prototype.update = function (time) {
             this._sprite.update(time);
@@ -719,6 +754,15 @@ var TSE;
         AnimatedSpriteComponent.prototype.render = function (shader) {
             this._sprite.draw(shader, this.owner.worldMatrix);
             _super.prototype.render.call(this, shader);
+        };
+        AnimatedSpriteComponent.prototype.play = function () {
+            this._sprite.play();
+        };
+        AnimatedSpriteComponent.prototype.stop = function () {
+            this._sprite.stop();
+        };
+        AnimatedSpriteComponent.prototype.setFrame = function (frameNumber) {
+            this._sprite.setFrame(frameNumber);
         };
         return AnimatedSpriteComponent;
     }(TSE.BaseComponent));
@@ -841,18 +885,29 @@ var TSE;
     // exporting allows us to reference the class in other files
     var Engine = /** @class */ (function () {
         // typescript has three levels of scope (public, private, protected)
-        function Engine() {
+        // width of game in pixels
+        // height of game in pixels
+        function Engine(width, height) {
             this._previousTime = 0;
+            this._gameWidth = width;
+            this._gameHeight = height;
         }
         Engine.prototype.start = function () {
             this._canvas = TSE.GLUtilities.initialize();
+            // set width and height if exists
+            if (this._gameWidth !== undefined && this._gameHeight !== undefined) {
+                // px for CSS property
+                this._canvas.style.width = this._gameWidth + "px";
+                this._canvas.style.height = this._gameHeight + "px";
+                this._canvas.width = this._gameWidth;
+                this._canvas.height = this._gameHeight;
+            }
             // initialize assets and zones
             TSE.AssetManager.initialize();
             TSE.InputManager.initialize();
             TSE.ZoneManager.initialize();
-            TSE.Message.subscribe("MOUSE_UP", this);
             // what color the webgl will be cleared to for every frame
-            TSE.gl.clearColor(0, 0, 0, 1);
+            TSE.gl.clearColor(146 / 255, 206 / 255, 247 / 255, 1);
             TSE.gl.enable(TSE.gl.BLEND);
             TSE.gl.blendFunc(TSE.gl.SRC_ALPHA, TSE.gl.ONE_MINUS_SRC_ALPHA);
             this._basicShader = new TSE.BasicShader();
@@ -860,8 +915,11 @@ var TSE;
             this._projection = TSE.Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
             // load materials
             TSE.MaterialManager.registerMaterial(new TSE.Material("leaves", "assets/textures/dk64-leaves.png", TSE.Color.white()));
-            TSE.MaterialManager.registerMaterial(new TSE.Material("cat", "assets/textures/bird.png", TSE.Color.white()));
-            TSE.AudioManager.loadSoundFile("flap", "assets/sounds/birdflap.mp3", false);
+            TSE.MaterialManager.registerMaterial(new TSE.Material("duck", "assets/textures/duck.png", TSE.Color.white()));
+            //MaterialManager.registerMaterial(new Material("grass", "assets/textures/grass.png", Color.white()));
+            TSE.AudioManager.loadSoundFile("flap", "assets/sounds/flap.mp3", false);
+            //AudioManager.loadSoundFile("flap", "assets/sounds/ting.mp3", false);
+            //AudioManager.loadSoundFile("flap", "assets/sounds/dead.mp3", false);
             // load
             this._projection = TSE.Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
             // TEMPORARY
@@ -874,8 +932,11 @@ var TSE;
          */
         Engine.prototype.resize = function () {
             if (this._canvas !== undefined) {
-                this._canvas.width = window.innerWidth;
-                this._canvas.height = window.innerHeight;
+                // default to full screen behavior
+                if (this._gameWidth === undefined || this._gameHeight === undefined) {
+                    this._canvas.width = window.innerWidth;
+                    this._canvas.height = window.innerHeight;
+                }
                 // tells webgl to use the full range of the viewport
                 TSE.gl.viewport(0, 0, this._canvas.width, this._canvas.height);
                 // give webgl a reference for the maximum area of the screen
@@ -887,7 +948,6 @@ var TSE;
             if (message.code === "MOUSE_UP") {
                 var context = message.context;
                 document.title = 'Pos: [String(context.position.x},${context.position.y}]';
-                TSE.AudioManager.playSound('flap');
             }
         };
         Engine.prototype.loop = function () {
@@ -945,9 +1005,14 @@ var TSE;
                 canvas = document.createElement("canvas");
                 document.body.appendChild(canvas);
             }
+            // check for canvas context in webgl
             TSE.gl = canvas.getContext("webgl");
-            if (TSE.gl === undefined) {
-                throw new Error("Unable to initialize WebGL!");
+            if (TSE.gl === undefined || TSE.gl == null) {
+                // specifc to windows explorer
+                //gl = canvas.getContext("experimental-webgl");
+                if (TSE.gl === undefined || TSE.gl == null) {
+                    throw new Error("Unable to initialize WebGL!");
+                }
             }
             return canvas;
         };
@@ -1171,8 +1236,8 @@ var TSE;
             var shader = TSE.gl.createShader(shaderType);
             TSE.gl.shaderSource(shader, source);
             TSE.gl.compileShader(shader);
-            var error = TSE.gl.getShaderInfoLog(shader);
-            if (!TSE.gl.getShaderParameter(shader, TSE.gl.COMPILE_STATUS)) {
+            var error = TSE.gl.getShaderInfoLog(shader).trim();
+            if (error !== "") {
                 throw new Error("Error compiling shader: " + this._name + ":" + error);
             }
             return shader;
@@ -1182,7 +1247,7 @@ var TSE;
             TSE.gl.attachShader(this._program, vertexShader);
             TSE.gl.attachShader(this._program, fragmentShader);
             TSE.gl.linkProgram(this._program);
-            var error = TSE.gl.getProgramInfoLog(this._program);
+            var error = TSE.gl.getProgramInfoLog(this._program).trim();
             if (error !== "") {
                 throw new Error("Error linking shader: " + this._name + ":" + error);
             }
@@ -1333,13 +1398,13 @@ var TSE;
                 new TSE.Vertex(minX, minY, 0, 0, 0),
                 new TSE.Vertex(minX, maxY, 0, 0, 1.0),
                 new TSE.Vertex(maxX, maxY, 0, 1.0, 1.0),
-                new TSE.Vertex(maxX, maxY, 0, 1.0, 0),
-                new TSE.Vertex(maxX, minY, 0, 1.0, 1.0),
+                new TSE.Vertex(maxX, maxY, 0, 1.0, 1.0),
+                new TSE.Vertex(maxX, minY, 0, 1.0, 0),
                 new TSE.Vertex(minX, minY, 0, 0, 0)
             ];
             for (var _i = 0, _a = this._vertices; _i < _a.length; _i++) {
                 var v = _a[_i];
-                // hey wgl, we want to pass you info
+                // hey webgl, we want to pass you info
                 this._buffer.pushBackData(v.toArray());
             }
             this._buffer.upload();
@@ -1349,13 +1414,13 @@ var TSE;
             // calculate offset from origin
             var minX = -(this._width * this._origin.x);
             var maxX = this._width * (1.0 - this._origin.x);
-            var minY = -(this._width * this._origin.y);
-            var maxY = this._width * (1.0 - this._origin.y);
+            var minY = -(this._height * this._origin.y);
+            var maxY = this._height * (1.0 - this._origin.y);
             this._vertices[0].position.set(minX, minY);
-            this._vertices[1].position.set(minX, minY);
-            this._vertices[2].position.set(minX, minY);
-            this._vertices[3].position.set(minX, minY);
-            this._vertices[4].position.set(minX, minY);
+            this._vertices[1].position.set(minX, maxY);
+            this._vertices[2].position.set(maxX, maxY);
+            this._vertices[3].position.set(maxX, maxY);
+            this._vertices[4].position.set(maxX, minY);
             this._vertices[5].position.set(minX, minY);
             this._buffer.clearData();
             for (var _i = 0, _a = this._vertices; _i < _a.length; _i++) {
@@ -1412,6 +1477,7 @@ var TSE;
             _this._assetLoaded = false;
             _this._assetWidth = 2;
             _this._assetHeight = 2;
+            _this._isPlaying = true;
             _this._frameHeight = frameHeight;
             _this._frameWidth = frameWidth;
             _this._frameCount = frameCount;
@@ -1420,8 +1486,27 @@ var TSE;
             TSE.Message.subscribe(TSE.MESSAGE_ASSET_LOADER_ASSET_LOADED + _this._material.diffuseTextureName, _this);
             return _this;
         }
+        Object.defineProperty(AnimatedSprite.prototype, "isPlaying", {
+            get: function () {
+                return this._isPlaying;
+            },
+            enumerable: false,
+            configurable: true
+        });
         AnimatedSprite.prototype.destroy = function () {
             _super.prototype.destroy.call(this);
+        };
+        AnimatedSprite.prototype.play = function () {
+            this._isPlaying = true;
+        };
+        AnimatedSprite.prototype.stop = function () {
+            this._isPlaying = false;
+        };
+        AnimatedSprite.prototype.setFrame = function (frameNumber) {
+            if (frameNumber >= this._frameCount) {
+                throw new Error("Frame is out of range:" + frameNumber + ", frame count:" + this._frameCount);
+            }
+            this._currentFrame = frameNumber;
         };
         // must wait until the asset has loaded to calculate UVs
         AnimatedSprite.prototype.onMessage = function (message) {
@@ -1435,9 +1520,17 @@ var TSE;
         };
         AnimatedSprite.prototype.load = function () {
             _super.prototype.load.call(this);
+            if (!this._assetLoaded) {
+                this.setupFromMaterial();
+            }
         };
         AnimatedSprite.prototype.update = function (time) {
             if (!this._assetLoaded) {
+                this.setupFromMaterial();
+                return;
+            }
+            // boot out early if not animating
+            if (!this._isPlaying) {
                 return;
             }
             // update the current time
@@ -1456,14 +1549,21 @@ var TSE;
                 this._vertices[1].texCoords = new TSE.Vector2(this._frameUVs[frameUVs].min.x, this._frameUVs[frameUVs].max.y);
                 this._vertices[2].texCoords.copyFrom(this._frameUVs[frameUVs].max);
                 // broken for some reason 4,3,5
-                this._vertices[4].texCoords.copyFrom(this._frameUVs[frameUVs].max);
-                this._vertices[3].texCoords = new TSE.Vector2(this._frameUVs[frameUVs].max.x, this._frameUVs[frameUVs].min.y);
+                this._vertices[3].texCoords.copyFrom(this._frameUVs[frameUVs].max);
+                this._vertices[4].texCoords = new TSE.Vector2(this._frameUVs[frameUVs].max.x, this._frameUVs[frameUVs].min.y);
                 this._vertices[5].texCoords.copyFrom(this._frameUVs[frameUVs].min);
+                this._vertices[0].texCoords = new TSE.Vector2(0 + 0.333 * frameUVs, 0);
+                this._vertices[1].texCoords = new TSE.Vector2(0 + 0.333 * frameUVs, 1);
+                this._vertices[2].texCoords = new TSE.Vector2(0.333 * (frameUVs + 1), 1);
+                // broken for some reason 5,3,4
+                this._vertices[5].texCoords = new TSE.Vector2(0 + 0.333 * frameUVs, 0);
+                this._vertices[3].texCoords = new TSE.Vector2(0.33 * (frameUVs + 1), 1);
+                this._vertices[4].texCoords = new TSE.Vector2(0.33 * (frameUVs + 1), 0);
                 // update buffer
-                //this._buffer.clearData();
+                this._buffer.clearData();
                 for (var _i = 0, _a = this._vertices; _i < _a.length; _i++) {
                     var v = _a[_i];
-                    // hey wgl, we want to pass you info
+                    // hey webgl, we want to pass you info
                     this._buffer.pushBackData(v.toArray());
                 }
                 this._buffer.upload();
@@ -1495,6 +1595,21 @@ var TSE;
                 // store the calculated UV coordinates
                 this._frameUVs.push(new UVInfo(min, max));
                 xValue++;
+            }
+        };
+        AnimatedSprite.prototype.setupFromMaterial = function () {
+            // check if material's diffuse texture and asset are loaded
+            if (!this._assetLoaded) {
+                var material = TSE.MaterialManager.getMaterial(this._materialName);
+                if (material.diffuseTexture.isLoaded) {
+                    if (TSE.AssetManager.isAssetLoaded(material.diffuseTextureName)) {
+                        // set values
+                        this._assetHeight = material.diffuseTexture.height;
+                        this._assetHeight = material.diffuseTexture.width;
+                        this._assetLoaded = true;
+                        this.calculateUVs();
+                    }
+                }
             }
         };
         return AnimatedSprite;
@@ -1738,7 +1853,7 @@ var TSE;
         function Circle2D() {
             this.position = TSE.Vector2.zero;
             // temporary fix for boundary positions
-            this.origin = TSE.Vector2.zero;
+            this.origin = TSE.Vector2.zero; // new Vector2(0.5, 0.5);
         }
         Object.defineProperty(Circle2D.prototype, "offset", {
             /**
@@ -1779,7 +1894,7 @@ var TSE;
             if (other instanceof TSE.Rectangle2D) {
                 // check if any sides of the rectangle intersect with the circle
                 var deltaX = this.position.x - Math.max(other.position.x, Math.min(this.position.x, other.position.x + other.width));
-                var deltaY = this.position.y - Math.max(other.position.y, Math.min(this.position.y, other.position.y + other.width));
+                var deltaY = this.position.y - Math.max(other.position.y, Math.min(this.position.y, other.position.y + other.height));
                 if ((deltaX * deltaX + deltaY * deltaY) < (this.radius * this.radius)) {
                     return true;
                 }
@@ -1814,7 +1929,7 @@ var TSE;
              * provide offset value
              */
             get: function () {
-                return new TSE.Vector2(-(this.width * this.origin.x), -(this.height * this.origin.y));
+                return new TSE.Vector2((this.width * this.origin.x), (this.height * this.origin.y));
             },
             enumerable: false,
             configurable: true
@@ -1848,9 +1963,8 @@ var TSE;
                 }
             }
             if (other instanceof TSE.Circle2D) {
-                // check if any sides of the rectangle intersect with the circle
                 var deltaX = other.position.x - Math.max(this.position.x, Math.min(other.position.x, this.position.x + this.width));
-                var deltaY = other.position.y - Math.max(this.position.y, Math.min(other.position.y, this.position.y + this.width));
+                var deltaY = other.position.y - Math.max(this.position.y, Math.min(other.position.y, this.position.y + this.height));
                 if ((deltaX * deltaX + deltaY * deltaY) < (other.radius * other.radius)) {
                     return true;
                 }
@@ -2176,6 +2290,23 @@ var TSE;
     }());
     TSE.InputManager = InputManager;
 })(TSE || (TSE = {}));
+// Hack
+// cast the object Math as an any and attach a function called clamp to it
+Math.clamp = function (value, min, max) {
+    if (value < min) {
+        return min;
+    }
+    if (value > max) {
+        return max;
+    }
+    return value;
+};
+Math.degToRad = function (degrees) {
+    return degrees * Math.PI / 180.0;
+};
+Math.radToDeg = function (degrees) {
+    return degrees * 180.0 / Math.PI;
+};
 var TSE;
 (function (TSE) {
     var Matrix4x4 = /** @class */ (function () {
@@ -2446,6 +2577,17 @@ var TSE;
         Vector2.prototype.toFloat32Array = function () {
             return new Float32Array(this.toArray());
         };
+        Vector2.prototype.toVector3 = function () {
+            return new TSE.Vector3(this._x, this._y, 0);
+        };
+        Vector2.prototype.set = function (x, y) {
+            if (x !== undefined) {
+                this._x = x;
+            }
+            if (y !== undefined) {
+                this._y = y;
+            }
+        };
         // set only the values that have been defined
         Vector2.prototype.setFromJson = function (json) {
             if (json.x !== undefined) {
@@ -2473,6 +2615,11 @@ var TSE;
         Vector2.prototype.divide = function (v) {
             this._x /= v._x;
             this._y /= v._y;
+            return this;
+        };
+        Vector2.prototype.scale = function (scale) {
+            this._x *= scale;
+            this._y *= scale;
             return this;
         };
         Vector2.prototype.clone = function () {
@@ -2838,6 +2985,46 @@ var TSE;
             }
         };
         /**
+         * Recursively searches for component names
+         */
+        SimObject.prototype.getComponentByName = function (name) {
+            for (var _i = 0, _a = this._components; _i < _a.length; _i++) {
+                var component = _a[_i];
+                //let result = child.getObjectByName(name);
+                if (component.name === name) {
+                    return component;
+                }
+            }
+            for (var _b = 0, _c = this._children; _b < _c.length; _b++) {
+                var child = _c[_b];
+                var component = child.getComponentByName(name);
+                if (component !== undefined) {
+                    return component;
+                }
+            }
+            return undefined;
+        };
+        /**
+         * Recursively searches for behavior names
+         */
+        SimObject.prototype.getBehaviorByName = function (name) {
+            for (var _i = 0, _a = this._behaviors; _i < _a.length; _i++) {
+                var behavior = _a[_i];
+                //let result = child.getObjectByName(name);
+                if (behavior.name === name) {
+                    return behavior;
+                }
+            }
+            for (var _b = 0, _c = this._children; _b < _c.length; _b++) {
+                var child = _c[_b];
+                var behavior = child.getBehaviorByName(name);
+                if (behavior !== undefined) {
+                    return behavior;
+                }
+            }
+            return undefined;
+        };
+        /**
          * recursively searches for the object
          */
         SimObject.prototype.getObjectByName = function (name) {
@@ -2873,6 +3060,21 @@ var TSE;
             for (var _b = 0, _c = this._children; _b < _c.length; _b++) {
                 var c = _c[_b];
                 c.load();
+            }
+        };
+        SimObject.prototype.updateReady = function () {
+            for (var _i = 0, _a = this._components; _i < _a.length; _i++) {
+                var c = _a[_i];
+                c.updateReady();
+            }
+            // update behaviors
+            for (var _b = 0, _c = this._behaviors; _b < _c.length; _b++) {
+                var b = _c[_b];
+                b.updateReady();
+            }
+            for (var _d = 0, _e = this._children; _d < _e.length; _d++) {
+                var c = _e[_d];
+                c.updateReady();
             }
         };
         /**
@@ -3028,6 +3230,7 @@ var TSE;
         Zone.prototype.load = function () {
             this._state = ZoneState.LOADING;
             this._scene.load();
+            this._scene.root.updateReady();
             this._state = ZoneState.UPDATING;
         };
         Zone.prototype.unload = function () {

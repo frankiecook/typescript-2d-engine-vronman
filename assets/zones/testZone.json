@@ -4,26 +4,26 @@
 	"id": 0,
 	"objects": [
 		{
-			"name": "cat",
+			"name": "duck",
 			"transform": {
 				"position": {
 					"x": 100,
 					"y": 100
 				},
 				"scale": {
-					"x": 0.4,
-					"y": 0.4
+					"x": 4,
+					"y": 4
 				}
 			},
 			"components": [
 				{
-					"name": "catAnimatedSprite",
+					"name": "duckAnimatedSprite",
 					"type": "animatedSprite",
-					"materialName": "cat",
-					"frameWidth": 240,
-					"frameHeight": 314,
-					"frameCount": 6,
-					"frameSequence": [0,1,2,3,4,5],
+					"materialName": "duck",
+					"frameWidth": 17,
+					"frameHeight": 12,
+					"frameCount": 3,
+					"frameSequence": [0,1,2,1],
 					"origin": {
 						"x": 0.5,
 						"y": 0.5
@@ -34,7 +34,7 @@
 					"type": "collision",
 					"shape": {
 						"type": "circle",
-						"radius": 68
+						"radius": 34
 					}
 				}
 			],
@@ -47,20 +47,20 @@
 			]
 		},
 		{
-			"name": "testCrate",
+			"name": "leaves",
 			"transform": {
 				"position": {
-					"x": 300,
+					"x": 200,
 					"y": 300
 				},
 				"scale": {
-					"x": 2,
-					"y": 2
+					"x": 1,
+					"y": 1
 				}
 			},
 			"components": [
 				{
-					"name": "test",
+					"name": "leaves",
 					"type": "sprite",
 					"materialName": "leaves",
 					"origin": {
@@ -69,7 +69,7 @@
 					}
 				},
 				{
-					"name": "testCrateCollision",
+					"name": "leavesCollision",
 					"type": "collision",
 					"shape": {
 						"type": "rectangle",

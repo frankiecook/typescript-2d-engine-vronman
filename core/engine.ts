@@ -10,24 +10,38 @@ namespace TSE {
 		private _projection: Matrix4x4;
 		private _previousTime: number = 0;
 
-		// typescript has three levels of scope (public, private, protected)
-		public constructor() {
+		private _gameWidth: number;
+		private _gameHeight: number;
 
+
+		// typescript has three levels of scope (public, private, protected)
+		// width of game in pixels
+		// height of game in pixels
+		public constructor(width?: number, height?: number) {
+			this._gameWidth = width;
+			this._gameHeight = height;
 		}
 
 		public start(): void {
 
 			this._canvas = GLUtilities.initialize();
 
+			// set width and height if exists
+			if (this._gameWidth !== undefined && this._gameHeight !== undefined) {
+				// px for CSS property
+				this._canvas.style.width = this._gameWidth + "px";
+				this._canvas.style.height = this._gameHeight + "px";
+				this._canvas.width = this._gameWidth;
+				this._canvas.height = this._gameHeight;
+			}
+
 			// initialize assets and zones
 			AssetManager.initialize();
 			InputManager.initialize();
 			ZoneManager.initialize();
 
-			Message.subscribe("MOUSE_UP", this);
-
 			// what color the webgl will be cleared to for every frame
-			gl.clearColor(0, 0, 0, 1);
+			gl.clearColor(146/255, 206/255, 247/255, 1);
 			gl.enable(gl.BLEND);
 			gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
@@ -38,9 +52,12 @@ namespace TSE {
 
 			// load materials
 			MaterialManager.registerMaterial(new Material("leaves", "assets/textures/dk64-leaves.png", Color.white()));
-			MaterialManager.registerMaterial(new Material("cat", "assets/textures/bird.png", Color.white()));
+			MaterialManager.registerMaterial(new Material("duck", "assets/textures/duck.png", Color.white()));
+			//MaterialManager.registerMaterial(new Material("grass", "assets/textures/grass.png", Color.white()));
 
-			AudioManager.loadSoundFile("flap", "assets/sounds/birdflap.mp3", false);
+			AudioManager.loadSoundFile("flap", "assets/sounds/flap.mp3", false);
+			//AudioManager.loadSoundFile("flap", "assets/sounds/ting.mp3", false);
+			//AudioManager.loadSoundFile("flap", "assets/sounds/dead.mp3", false);
 
 			// load
 			this._projection = Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
@@ -57,8 +74,11 @@ namespace TSE {
 		 */
 		public resize(): void {
 			if (this._canvas !== undefined) {
-				this._canvas.width = window.innerWidth;
-				this._canvas.height = window.innerHeight;
+				// default to full screen behavior
+				if (this._gameWidth === undefined || this._gameHeight === undefined) {
+					this._canvas.width = window.innerWidth;
+					this._canvas.height = window.innerHeight;
+				}
 
 				// tells webgl to use the full range of the viewport
 				gl.viewport(0, 0, this._canvas.width, this._canvas.height);
@@ -73,8 +93,6 @@ namespace TSE {
 			if (message.code === "MOUSE_UP") {
 				let context = message.context as MouseContext;
 				document.title = 'Pos: [String(context.position.x},${context.position.y}]';
-
-				AudioManager.playSound('flap');
 			}
 		}
 

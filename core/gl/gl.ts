@@ -29,9 +29,15 @@
 				document.body.appendChild(canvas);
 			}
 
+			// check for canvas context in webgl
 			gl = canvas.getContext("webgl");
-			if (gl === undefined) {
-				throw new Error("Unable to initialize WebGL!");
+			if (gl === undefined || gl == null) {
+				// specifc to windows explorer
+				//gl = canvas.getContext("experimental-webgl");
+
+				if (gl === undefined || gl == null) {
+					throw new Error("Unable to initialize WebGL!");
+				}
 			}
 
 			return canvas;

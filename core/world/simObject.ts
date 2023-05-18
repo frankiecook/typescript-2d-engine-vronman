@@ -56,6 +56,48 @@
 		}
 
 		/**
+		 * Recursively searches for component names
+		 */
+		public getComponentByName(name: string): IComponent {
+			for (let component of this._components) {
+				//let result = child.getObjectByName(name);
+				if (component.name === name) {
+					return component;
+				}
+			}
+
+			for (let child of this._children) {
+				let component = child.getComponentByName(name);
+				if (component !== undefined) {
+					return component;
+				}
+			}
+
+			return undefined;
+		}
+
+		/**
+		 * Recursively searches for behavior names
+		 */
+		public getBehaviorByName(name: string): IBehavior {
+			for (let behavior of this._behaviors) {
+				//let result = child.getObjectByName(name);
+				if (behavior.name === name) {
+					return behavior;
+				}
+			}
+
+			for (let child of this._children) {
+				let behavior = child.getBehaviorByName(name);
+				if (behavior !== undefined) {
+					return behavior;
+				}
+			}
+
+			return undefined;
+		}
+
+		/**
 		 * recursively searches for the object
 		 */
 		public getObjectByName(name: string): SimObject {
@@ -94,6 +136,21 @@
 			// recursively check that children are loaded
 			for (let c of this._children) {
 				c.load();
+			}
+		}
+
+		public updateReady(): void {
+			for (let c of this._components) {
+				c.updateReady();
+			}
+
+			// update behaviors
+			for (let b of this._behaviors) {
+				b.updateReady();
+			}
+
+			for (let c of this._children) {
+				c.updateReady();
 			}
 		}
 

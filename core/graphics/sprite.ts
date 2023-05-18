@@ -109,13 +109,13 @@
 				new Vertex(minX, maxY, 0, 0, 1.0),
 				new Vertex(maxX, maxY, 0, 1.0, 1.0),
 
-				new Vertex(maxX, maxY, 0, 1.0, 0),
-				new Vertex(maxX, minY, 0, 1.0, 1.0),
+				new Vertex(maxX, maxY, 0, 1.0, 1.0),
+				new Vertex(maxX, minY, 0, 1.0, 0),
 				new Vertex(minX, minY, 0, 0, 0)
 			];
 
 			for (let v of this._vertices) {
-				// hey wgl, we want to pass you info
+				// hey webgl, we want to pass you info
 				this._buffer.pushBackData(v.toArray());
 			}
 
@@ -128,15 +128,15 @@
 			let minX = -(this._width * this._origin.x);
 			let maxX = this._width * (1.0 - this._origin.x);
 
-			let minY = -(this._width * this._origin.y);
-			let maxY = this._width * (1.0 - this._origin.y);
+			let minY = -(this._height * this._origin.y);
+			let maxY = this._height * (1.0 - this._origin.y);
 
 			this._vertices[0].position.set(minX, minY);
-			this._vertices[1].position.set(minX, minY);
-			this._vertices[2].position.set(minX, minY);
+			this._vertices[1].position.set(minX, maxY);
+			this._vertices[2].position.set(maxX, maxY);
 
-			this._vertices[3].position.set(minX, minY);
-			this._vertices[4].position.set(minX, minY);
+			this._vertices[3].position.set(maxX, maxY);
+			this._vertices[4].position.set(maxX, minY);
 			this._vertices[5].position.set(minX, minY);
 
 			this._buffer.clearData();

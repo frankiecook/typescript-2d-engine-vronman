@@ -5,7 +5,7 @@
 		public position: Vector2 = Vector2.zero;
 
 		// temporary fix for boundary positions
-		public origin: Vector2 = Vector2.zero;
+		public origin: Vector2 = Vector2.zero;// new Vector2(0.5, 0.5);
 
 		public radius: number;
 
@@ -50,7 +50,7 @@
 			if (other instanceof Rectangle2D) {
 				// check if any sides of the rectangle intersect with the circle
 				let deltaX = this.position.x - Math.max(other.position.x, Math.min(this.position.x, other.position.x + other.width));
-				let deltaY = this.position.y - Math.max(other.position.y, Math.min(this.position.y, other.position.y + other.width));
+				let deltaY = this.position.y - Math.max(other.position.y, Math.min(this.position.y, other.position.y + other.height));
 				if ((deltaX * deltaX + deltaY * deltaY) < (this.radius * this.radius)) {
 					return true;
 				}

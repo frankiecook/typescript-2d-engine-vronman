@@ -40,7 +40,8 @@ namespace TSE {
 		private _currentTime: number = 0;
 		private _assetLoaded: boolean = false;
 		private _assetWidth: number=2;
-		private _assetHeight: number=2;
+		private _assetHeight: number = 2;
+		private _isPlaying: boolean = true;
 
 		public constructor(name: string, materialName: string, width: number = 50, height: number = 50, frameWidth: number=10, frameHeight: number=10, frameCount: number=1, frameSequence: number[]=[]) {
 			super(name, materialName, width, height);
@@ -54,8 +55,28 @@ namespace TSE {
 			Message.subscribe(MESSAGE_ASSET_LOADER_ASSET_LOADED + this._material.diffuseTextureName, this);
 		}
 
+		public get isPlaying(): boolean {
+			return this._isPlaying;
+		}
+
 		public destroy(): void {
 			super.destroy();
+		}
+
+		public play(): void {
+			this._isPlaying = true;
+		}
+
+		public stop(): void {
+			this._isPlaying = false;
+		}
+
+		public setFrame(frameNumber: number): void {
+			if (frameNumber >= this._frameCount) {
+				throw new Error("Frame is out of range:" + frameNumber+", frame count:"+this._frameCount);
+			}
+
+			this._currentFrame = frameNumber;
 		}
 
 		// must wait until the asset has loaded to calculate UVs
@@ -71,10 +92,20 @@ namespace TSE {
 
 		public load(): void {
 			super.load();
+
+			if (!this._assetLoaded) {
+				this.setupFromMaterial();
+			}
 		}
 
 		public update(time: number): void {
 			if (!this._assetLoaded) {
+				this.setupFromMaterial();
+				return;
+			}
+
+			// boot out early if not animating
+			if (!this._isPlaying) {
 				return;
 			}
 
@@ -92,18 +123,28 @@ namespace TSE {
 
 				// use the current frame in the frame sequence to copy UV data from
 				let frameUVs = this._frameSequence[this._currentFrame];
+
 				this._vertices[0].texCoords.copyFrom(this._frameUVs[frameUVs].min);
 				this._vertices[1].texCoords = new Vector2(this._frameUVs[frameUVs].min.x, this._frameUVs[frameUVs].max.y);
 				this._vertices[2].texCoords.copyFrom(this._frameUVs[frameUVs].max);
 				// broken for some reason 4,3,5
-				this._vertices[4].texCoords.copyFrom(this._frameUVs[frameUVs].max);
-				this._vertices[3].texCoords = new Vector2(this._frameUVs[frameUVs].max.x, this._frameUVs[frameUVs].min.y);
+				this._vertices[3].texCoords.copyFrom(this._frameUVs[frameUVs].max);
+				this._vertices[4].texCoords = new Vector2(this._frameUVs[frameUVs].max.x, this._frameUVs[frameUVs].min.y);
 				this._vertices[5].texCoords.copyFrom(this._frameUVs[frameUVs].min);
 
+				this._vertices[0].texCoords = new Vector2(0 + 0.333 * frameUVs, 0);
+				this._vertices[1].texCoords = new Vector2(0 + 0.333 * frameUVs, 1);
+				this._vertices[2].texCoords = new Vector2(0.333 * (frameUVs+1), 1);
+				// broken for some reason 5,3,4
+				this._vertices[5].texCoords = new Vector2(0 + 0.333 * frameUVs, 0);
+				this._vertices[3].texCoords = new Vector2(0.33 * (frameUVs + 1), 1);
+				this._vertices[4].texCoords = new Vector2(0.33 * (frameUVs + 1), 0);
+
 				// update buffer
-				//this._buffer.clearData();
+				this._buffer.clearData();
 				for (let v of this._vertices) {
-					// hey wgl, we want to pass you info
+					// hey webgl, we want to pass you info
+
 					this._buffer.pushBackData(v.toArray());
 				}
 
@@ -145,6 +186,23 @@ namespace TSE {
 				this._frameUVs.push(new UVInfo(min, max));
 
 				xValue++;
+			}
+		}
+
+		private setupFromMaterial(): void {
+			// check if material's diffuse texture and asset are loaded
+			if (!this._assetLoaded) {
+				let material = MaterialManager.getMaterial(this._materialName);
+				
+				if (material.diffuseTexture.isLoaded) {
+					if (AssetManager.isAssetLoaded(material.diffuseTextureName)) {
+						// set values
+						this._assetHeight = material.diffuseTexture.height;
+						this._assetHeight = material.diffuseTexture.width;
+						this._assetLoaded = true;
+						this.calculateUVs();
+					}
+				}
 			}
 		}
 	}
