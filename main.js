@@ -31,6 +31,7 @@ var TSE;
         AssetManager.initialize = function () {
             AssetManager._loaders.push(new TSE.ImageAssetLoader());
             AssetManager._loaders.push(new TSE.JsonAssetLoader());
+            AssetManager._loaders.push(new TSE.TextAssetLoader());
         };
         // add a loader for us to use
         // asumes that the loader passed in is unique
@@ -171,6 +172,47 @@ var TSE;
         return JsonAssetLoader;
     }());
     TSE.JsonAssetLoader = JsonAssetLoader;
+})(TSE || (TSE = {}));
+var TSE;
+(function (TSE) {
+    /**
+     * Text Asset communicates with data for Bitmaps
+     */
+    var TextAsset = /** @class */ (function () {
+        function TextAsset(name, data) {
+            this.name = name;
+            this.data = data;
+        }
+        return TextAsset;
+    }());
+    TSE.TextAsset = TextAsset;
+    var TextAssetLoader = /** @class */ (function () {
+        function TextAssetLoader() {
+        }
+        Object.defineProperty(TextAssetLoader.prototype, "supportedExtensions", {
+            // asset loader supports one type
+            get: function () {
+                return ["txt"];
+            },
+            enumerable: false,
+            configurable: true
+        });
+        TextAssetLoader.prototype.loadAsset = function (assetName) {
+            var request = new XMLHttpRequest();
+            request.open("GET", assetName);
+            request.addEventListener("load", this.onTextLoaded.bind(this, assetName, request));
+            request.send();
+        };
+        TextAssetLoader.prototype.onTextLoaded = function (assetName, request) {
+            console.debug("onTextLoaded: assetName/request", assetName, request);
+            if (request.readyState === request.DONE) {
+                var asset = new TextAsset(assetName, request.responseText);
+                TSE.AssetManager.onAssetLoaded(asset);
+            }
+        };
+        return TextAssetLoader;
+    }());
+    TSE.TextAssetLoader = TextAssetLoader;
 })(TSE || (TSE = {}));
 var TSE;
 (function (TSE) {
@@ -1997,6 +2039,201 @@ var TSE;
         return AnimatedSprite;
     }(TSE.Sprite));
     TSE.AnimatedSprite = AnimatedSprite;
+})(TSE || (TSE = {}));
+var TSE;
+(function (TSE) {
+    var FontUtilities = /** @class */ (function () {
+        function FontUtilities() {
+        }
+        // extracts values that are after '=' sign
+        FontUtilities.extractFieldValue = function (field) {
+            return field.split("=")[1];
+        };
+        return FontUtilities;
+    }());
+    var FontGlyph = /** @class */ (function () {
+        function FontGlyph() {
+        }
+        FontGlyph.fromFields = function (fields) {
+            var glyph = new FontGlyph();
+            glyph.id = Number(FontUtilities.extractFieldValue(fields[1]));
+            glyph.x = Number(FontUtilities.extractFieldValue(fields[2]));
+            glyph.y = Number(FontUtilities.extractFieldValue(fields[3]));
+            glyph.width = Number(FontUtilities.extractFieldValue(fields[4]));
+            glyph.height = Number(FontUtilities.extractFieldValue(fields[5]));
+            glyph.xOffset = Number(FontUtilities.extractFieldValue(fields[6]));
+            glyph.yOffset = Number(FontUtilities.extractFieldValue(fields[7]));
+            glyph.xAdvance = Number(FontUtilities.extractFieldValue(fields[8]));
+            glyph.page = Number(FontUtilities.extractFieldValue(fields[9]));
+            glyph.channel = Number(FontUtilities.extractFieldValue(fields[10]));
+            return glyph;
+        };
+        return FontGlyph;
+    }());
+    TSE.FontGlyph = FontGlyph;
+    var BitmapFont = /** @class */ (function () {
+        function BitmapFont() {
+            this._assetLoaded = false;
+            this._glyphs = {};
+        }
+        Object.defineProperty(BitmapFont.prototype, "name", {
+            get: function () {
+                return this._name;
+            },
+            enumerable: false,
+            configurable: true
+        });
+        Object.defineProperty(BitmapFont.prototype, "size", {
+            get: function () {
+                return this._size;
+            },
+            enumerable: false,
+            configurable: true
+        });
+        Object.defineProperty(BitmapFont.prototype, "imageWidth", {
+            get: function () {
+                return this._imageWidth;
+            },
+            enumerable: false,
+            configurable: true
+        });
+        Object.defineProperty(BitmapFont.prototype, "imageHeight", {
+            get: function () {
+                return this._imageHeight;
+            },
+            enumerable: false,
+            configurable: true
+        });
+        Object.defineProperty(BitmapFont.prototype, "textureName", {
+            get: function () {
+                return this._imageFile;
+            },
+            enumerable: false,
+            configurable: true
+        });
+        Object.defineProperty(BitmapFont.prototype, "isLoaded", {
+            get: function () {
+                return this._assetLoaded;
+            },
+            enumerable: false,
+            configurable: true
+        });
+        BitmapFont.prototype.load = function () {
+            // get the asset
+            var asset = TSE.AssetManager.getAsset(this._fontFileName);
+            // if asset isn't loaded
+            if (asset !== undefined) {
+                this.processFontFile(asset.data);
+            }
+            else {
+                TSE.Message.subscribe(TSE.MESSAGE_ASSET_LOADER_ASSET_LOADED + this._fontFileName, this);
+            }
+        };
+        BitmapFont.prototype.onMessage = function (message) {
+            if (message.code === TSE.MESSAGE_ASSET_LOADER_ASSET_LOADED + this._fontFileName) {
+                this.processFontFile(message.context.data);
+            }
+        };
+        BitmapFont.prototype.getGlyph = function (char) {
+            // Replace Unknown Characters with '?'
+            var code = char.charCodeAt(0);
+            code = this._glyphs[code] === undefined ? 63 : code;
+            return this._glyphs[code];
+        };
+        /**
+         * Returns a size that is representative of the dimensions of the text
+         * accounts for new lines
+         */
+        BitmapFont.prototype.measureText = function (text) {
+            var size = TSE.Vector2.zero;
+            var maxX = 0;
+            var x = 0;
+            var y = 0;
+            for (var _i = 0, text_1 = text; _i < text_1.length; _i++) {
+                var c = text_1[_i];
+                switch (c) {
+                    case "\n":
+                        if (x > maxX) {
+                            maxX = x;
+                        }
+                        x = 0;
+                        y += this._size;
+                        break;
+                    default:
+                        // grab the xAdvance value
+                        x += this.getGlyph(String(x)).xAdvance;
+                        break;
+                }
+            }
+            size.set(x, y);
+            return size;
+        };
+        /**
+         * Lengthy process of file line by line
+         * Lines have a type
+         */
+        BitmapFont.prototype.processFontFile = function (content) {
+            var charCount = 0;
+            var lines = content.split("\n");
+            for (var _i = 0, lines_1 = lines; _i < lines_1.length; _i++) {
+                var line = lines_1[_i];
+                // Sanitize the line
+                // use regular expression to replace any space with a single space
+                var data = line.replace(/\s\s+/g, ' ');
+                var fields = data.split(" ");
+                // look at the type of line
+                switch (fields[0]) {
+                    case "info":
+                        this._size = Number(FontUtilities.extractFieldValue(fields[2]));
+                        break;
+                    case "common":
+                        this._imageWidth = Number(FontUtilities.extractFieldValue(fields[3]));
+                        this._imageHeight = Number(FontUtilities.extractFieldValue(fields[4]));
+                        break;
+                    case "page":
+                        // scope variable for clarity
+                        {
+                            var id = Number(FontUtilities.extractFieldValue(fields[1]));
+                            this._imageFile = FontUtilities.extractFieldValue(fields[2]);
+                            // strip quotes
+                            this._imageFile.replace(/"/g, "");
+                            // prepend the path to the image name
+                            this._imageFile = ("assets/fonts" + this._imageFile).trim();
+                        }
+                        break;
+                    case "chars":
+                        charCount = Number(FontUtilities.extractFieldValue(fields[1]));
+                        // increment the expected count, the file's count is off by one
+                        charCount++;
+                        break;
+                    case "char":
+                        {
+                            var glyph = FontGlyph.fromFields(fields);
+                            this._glyphs[glyph.id] = glyph;
+                        }
+                        break;
+                }
+            }
+            // Verify the loaded glyphs
+            var actualGlyphCount = 0;
+            // only count properties
+            // Object.keys returns all the properties of the passed in object
+            var keys = Object.keys(this._glyphs);
+            // make sure properties are not unwanted (inheritied, etc.)
+            for (var _a = 0, keys_1 = keys; _a < keys_1.length; _a++) {
+                var key = keys_1[_a];
+                if (this._glyphs.hasOwnProperty(key)) {
+                    actualGlyphCount++;
+                }
+            }
+            if (actualGlyphCount !== undefined) {
+                throw new Error("Font file reported extistence of ${charCount} glyphs, but only ${actualGlyphcount} were found.");
+            }
+            this._assetLoaded = true;
+        };
+        return BitmapFont;
+    }());
+    TSE.BitmapFont = BitmapFont;
 })(TSE || (TSE = {}));
 var TSE;
 (function (TSE) {
