@@ -28,7 +28,7 @@
 		}
 
 		public loadAsset(assetName: string): void {
-			console.log("load asset naem: " + assetName);
+			console.log("load asset name: " + assetName);
 			let image: HTMLImageElement = new Image();
 			image.onload = this.onImageLoaded.bind(this, assetName, image);
 			image.src = assetName; // last thing to do

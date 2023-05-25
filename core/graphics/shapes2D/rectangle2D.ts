@@ -5,7 +5,7 @@
 		public position: Vector2 = Vector2.zero;
 
 		// temporary fix for boundary positions
-		public origin: Vector2 = new Vector2(0.5,0.5);
+		public origin: Vector2 = Vector2.zero;
 
 		public width: number;
 
@@ -44,12 +44,10 @@
 			if (other instanceof Rectangle2D) {
 
 				// check if any of the four corners of the bounding rectangle intersect
-				if (this.pointInShape(other.position) ||
+				return (this.pointInShape(other.position) ||
 					this.pointInShape(new Vector2(other.position.x + other.width, other.position.y)) ||
 					this.pointInShape(new Vector2(other.position.x + other.width, other.position.y + other.height)) ||
-					this.pointInShape(new Vector2(other.position.x, other.position.y + other.height))) {
-					return true;
-				}
+					this.pointInShape(new Vector2(other.position.x, other.position.y + other.height)))
 			}
 
 			if (other instanceof Circle2D) {
@@ -65,14 +63,17 @@
 
 		// check if a point is inside the shape
 		public pointInShape(point: Vector2): boolean {
-			// check x axis
-			if (point.x >= this.position.x && point.x <= this.position.x + this.width) {
-				// check y axis
-				if (point.y >= this.position.y && point.y <= this.position.y + this.height) {
-					return true;
-				}
-			}
 
+			let x = this.width < 0 ? this.position.x - this.width : this.position.x;
+			let y = this.width < 0 ? this.position.y - this.width : this.position.y;
+
+			let extentX = this.width < 0 ? this.position.x : this.position.x + this.width;
+			let extentY = this.width < 0 ? this.position.y : this.position.y + this.width;
+
+			if (point.x >= x && point.x <= extentX && point.y >= y && point.y <= extentY) {
+				return true;
+			}
+				
 			// if shape is unknown then don't intersect
 			return false;
 		}

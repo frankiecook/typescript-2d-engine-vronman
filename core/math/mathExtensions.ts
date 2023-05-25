@@ -1,5 +1,4 @@
-﻿interface TSE {
-
+﻿interface Math {
 	clamp(value: number, min: number, max: number): number;
 	degToRad(degrees: number): number;
 	radToDeg(radians: number): number;

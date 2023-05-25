@@ -92,7 +92,9 @@
 		private loadTextureFromAsset(asset: ImageAsset): void {
 			this._width = asset.width;
 			this._height = asset.height;
-
+			console.log(this._name);
+			console.log("x: " + this._width);
+			console.log("y: " + this._height);
 			this.bind();
 
 			// loading an image into the texture
@@ -100,6 +102,7 @@
 
 			if (this.isPowerof2()) {
 				gl.generateMipmap(gl.TEXTURE_2D);
+				console.log("MIPMAPS");
 			} else {
 				// do not generate a mip map and clamp wrapping to edge
 				// S,T are equavalent to U,V

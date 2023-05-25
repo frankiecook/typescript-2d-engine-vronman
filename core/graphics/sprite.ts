@@ -20,6 +20,11 @@
 			this._height = height;
 			this._materialName = materialName;
 			this._material = MaterialManager.getMaterial(this._materialName);
+
+
+			if (name === "grass") {
+				console.log("GROUND SPRITE");
+			}
 		}
 
 		public get name(): string {
@@ -34,6 +39,14 @@
 			this._origin = value;
 			// when origin is set
 			this.recalculateVertices();
+		}
+
+		public get width(): number {
+			return this._width;
+		}
+
+		public get height(): number {
+			return this._height;
 		}
 
 		public destroy(): void {
@@ -100,8 +113,8 @@
 			let minX = -(this._width * this._origin.x);
 			let maxX = this._width * (1.0 - this._origin.x);
 
-			let minY = -(this._width * this._origin.y);
-			let maxY = this._width * (1.0 - this._origin.y);
+			let minY = -(this._height * this._origin.y);
+			let maxY = this._height * (1.0 - this._origin.y);
 
 			this._vertices = [
 				// x, y, z	, u, v
@@ -134,7 +147,7 @@
 			this._vertices[0].position.set(minX, minY);
 			this._vertices[1].position.set(minX, maxY);
 			this._vertices[2].position.set(maxX, maxY);
-
+			// 3, 4, 5
 			this._vertices[3].position.set(maxX, maxY);
 			this._vertices[4].position.set(maxX, minY);
 			this._vertices[5].position.set(minX, minY);
@@ -144,6 +157,12 @@
 			for (let v of this._vertices) {
 				// hey wgl, we want to pass you info
 				this._buffer.pushBackData(v.toArray());
+			}
+
+			if (this._height == 11) {
+				console.log("GRASS COMPONENT");
+				console.log(this._width);
+				console.log(this._height);
 			}
 
 			this._buffer.upload();

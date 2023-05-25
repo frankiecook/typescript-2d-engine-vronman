@@ -211,35 +211,6 @@
 			"children": 
 			[
 				{
-					"name": "pipe2",
-					"transform": {
-						"position": {
-							"x": 0,
-							"y": 150
-						}
-					},
-					"components": 
-					[
-						{
-							"name": "end_top",
-							"type": "sprite",
-							"materialName": "end",
-							"width": 48,
-							"height": -28
-						},
-						{
-							"name": "pipe2Collision_ending",
-							"type": "collision",
-							"shape": {
-								"type": "rectangle",
-								"width": 48,
-								"height": -28
-							}
-						}
-					],
-					"behaviors": []
-				},
-				{
 					"name": "pipe2_middle_top",
 					"transform": {
 						"position": {
@@ -360,35 +331,6 @@
 			],
 			"children": 
 			[
-				{
-					"name": "pipe3",
-					"transform": {
-						"position": {
-							"x": 0,
-							"y": 150
-						}
-					},
-					"components": 
-					[
-						{
-							"name": "end_top",
-							"type": "sprite",
-							"materialName": "end",
-							"width": 48,
-							"height": -28
-						},
-						{
-							"name": "pipe3Collision_ending",
-							"type": "collision",
-							"shape": {
-								"type": "rectangle",
-								"width": 48,
-								"height": -28
-							}
-						}
-					],
-					"behaviors": []
-				},
 				{
 					"name": "pipe3_middle_top",
 					"transform": {
@@ -514,7 +456,7 @@
 					},
 					"minPosition": {
 						"x": -330,
-						"y": 458
+						"y": 0
 					},
 					"resetPosition": {
 						"x": 330,
@@ -568,7 +510,7 @@
 					},
 					"minPosition": {
 						"x": -330,
-						"y": 458
+						"y": 0
 					},
 					"resetPosition": {
 						"x": 330,

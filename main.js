@@ -112,7 +112,7 @@ var TSE;
             configurable: true
         });
         ImageAssetLoader.prototype.loadAsset = function (assetName) {
-            console.log("load asset naem: " + assetName);
+            console.log("load asset name: " + assetName);
             var image = new Image();
             image.onload = this.onImageLoaded.bind(this, assetName, image);
             image.src = assetName; // last thing to do
@@ -367,6 +367,213 @@ var TSE;
 /// <reference path="behaviormanager.ts" />
 var TSE;
 (function (TSE) {
+    var PlayerBehaviorData = /** @class */ (function () {
+        function PlayerBehaviorData() {
+            this.acceleration = new TSE.Vector2(0, 920);
+        }
+        /* load information from json */
+        PlayerBehaviorData.prototype.setFromJson = function (json) {
+            if (json.name === undefined) {
+                throw new Error("Name must be defined in behavior data.");
+            }
+            this.name = String(json.name);
+            if (json.acceleration !== undefined) {
+                this.acceleration.setFromJson(json.acceleration);
+            }
+            if (json.animatedSpriteName === undefined) {
+                throw new Error("animatedSpriteName must be defined in behavior data.");
+            }
+            else {
+                this.animatedSpriteName = String(json.animatedSpriteName);
+            }
+            if (json.playerCollisionComponent === undefined) {
+                throw new Error("playerCollisionComponent must be defined in behavior data.");
+            }
+            else {
+                this.playerCollisionComponent = String(json.playerCollisionComponent);
+            }
+            if (json.groundCollisionComponent === undefined) {
+                throw new Error("groundCollisionComponent must be defined in behavior data.");
+            }
+            else {
+                this.groundCollisionComponent = String(json.groundCollisionComponent);
+            }
+        };
+        return PlayerBehaviorData;
+    }());
+    TSE.PlayerBehaviorData = PlayerBehaviorData;
+    var PlayerBehaviorBuilder = /** @class */ (function () {
+        function PlayerBehaviorBuilder() {
+        }
+        Object.defineProperty(PlayerBehaviorBuilder.prototype, "type", {
+            get: function () {
+                return "player";
+            },
+            enumerable: false,
+            configurable: true
+        });
+        PlayerBehaviorBuilder.prototype.buildFromJson = function (json) {
+            var data = new PlayerBehaviorData();
+            data.setFromJson(json);
+            return new PlayerBehavior(data);
+        };
+        return PlayerBehaviorBuilder;
+    }());
+    TSE.PlayerBehaviorBuilder = PlayerBehaviorBuilder;
+    /* handles rotation behavior of objects */
+    var PlayerBehavior = /** @class */ (function (_super) {
+        __extends(PlayerBehavior, _super);
+        function PlayerBehavior(data) {
+            var _this = _super.call(this, data) || this;
+            _this._velocity = TSE.Vector2.zero;
+            _this._isAlive = true;
+            _this._isPlaying = false;
+            _this._initialPosition = TSE.Vector3.zero;
+            _this._pipeNames = ["pip1Collision_end", "pip1Collision_middle_top", "pip1Collision_middle_bottom"];
+            _this._acceleration = data.acceleration;
+            _this._playerCollisionComponent = data.playerCollisionComponent;
+            _this._groundCollisionComponent = data.groundCollisionComponent;
+            _this._animatedSpriteName = data.animatedSpriteName;
+            TSE.Message.subscribe("MOUSE_DOWN", _this);
+            TSE.Message.subscribe("COLLISION_ENTRY:" + _this._playerCollisionComponent, _this);
+            TSE.Message.subscribe("GAME_RESET", _this);
+            TSE.Message.subscribe("GAME_START", _this);
+            return _this;
+        }
+        PlayerBehavior.prototype.updateReady = function () {
+            _super.prototype.updateReady.call(this);
+            // obtain a reference to the animated sprite
+            this._sprite = this._owner.getComponentByName(this._animatedSpriteName);
+            if (this._sprite === undefined) {
+                throw new Error("AnimatedSpriteComponent named '" + this._animatedSpriteName + "' is not attached to the owner of this component.");
+            }
+            // Make sure the animation plays right away
+            this._sprite.setFrame(0);
+            this._initialPosition.copyFrom(this._owner.transform.position);
+        };
+        PlayerBehavior.prototype.update = function (time) {
+            var seconds = time / 1000;
+            if (this._isPlaying) {
+                this._velocity.add(this._acceleration.clone().scale(seconds));
+            }
+            // limit max speed
+            if (this._velocity.y > 400) {
+                this._velocity.y = 400;
+            }
+            // Prevent flying too high
+            if (this._owner.transform.position.y < -13) {
+                this._owner.transform.position.y = -13;
+                this._velocity.y = 0;
+            }
+            // apply velocity changes
+            this._owner.transform.position.add(this._velocity.clone().scale(seconds).toVector3());
+            // rotation checks
+            if (this._velocity.y < 0) {
+                this._owner.transform.rotation.z -= Math.degToRad(600.0) * seconds;
+                if (this._owner.transform.rotation.z < Math.degToRad(-20)) {
+                    this._owner.transform.rotation.z = Math.degToRad(-20);
+                }
+            }
+            if (this.isFalling() || !this._isAlive) {
+                this._owner.transform.rotation.z += Math.degToRad(480.0) * seconds;
+                if (this._owner.transform.rotation.z > Math.degToRad(90)) {
+                    this._owner.transform.rotation.z = Math.degToRad(90);
+                }
+            }
+            // animation check
+            if (this.shouldNotFlap()) {
+                this._sprite.stop();
+            }
+            else {
+                if (!this._sprite.isPlaying) {
+                    this._sprite.play();
+                }
+            }
+            _super.prototype.update.call(this, time);
+        };
+        // check which message is recievec
+        PlayerBehavior.prototype.onMessage = function (message) {
+            switch (message.code) {
+                case "MOUSE_DOWN":
+                    this.onFlap();
+                    break;
+                case "COLLISION_ENTRY":
+                    +this._playerCollisionComponent;
+                    var data = message.context;
+                    // check if collision is with the ground
+                    if (data.a.name === this._groundCollisionComponent || data.b.name == this._groundCollisionComponent) {
+                        this.die();
+                        this.decelerate();
+                    }
+                    // check that pipe exists
+                    if (this._pipeNames.indexOf(data.a.name) !== -1 || this._pipeNames.indexOf(data.b.name) !== -1) {
+                        this.die();
+                    }
+                    break;
+                case "GAME_RESET":
+                    this.reset();
+                    break;
+                case "GAME_START":
+                    this.start();
+                    break;
+            }
+        };
+        // in a free fall state if velocity is at least 220
+        PlayerBehavior.prototype.isFalling = function () {
+            return this._velocity.y > 220.0;
+        };
+        PlayerBehavior.prototype.shouldNotFlap = function () {
+            return this._isPlaying || this._velocity.y > 220.0 || !this._isAlive;
+        };
+        PlayerBehavior.prototype.die = function () {
+            // send only once
+            if (this._isAlive) {
+                this._isAlive = false;
+                TSE.AudioManager.playSound("dead");
+                TSE.Message.send("PLAYER_DIED", this);
+            }
+        };
+        PlayerBehavior.prototype.reset = function () {
+            this._isAlive = true;
+            this._isPlaying = false;
+            this._sprite.owner.transform.position.copyFrom(this._initialPosition);
+            this._sprite.owner.transform.rotation.z = 0;
+            this._velocity.set(0, 0);
+            this._acceleration.set(0, 920);
+            this._sprite.play();
+        };
+        PlayerBehavior.prototype.start = function () {
+            this._isPlaying = true;
+            TSE.Message.send("PLAYER_RESET", this);
+        };
+        PlayerBehavior.prototype.decelerate = function () {
+            this._acceleration.y = 0;
+            this._velocity.y = 0;
+        };
+        PlayerBehavior.prototype.onFlap = function () {
+            if (this._isAlive && this._isPlaying) {
+                this._velocity.y = -280;
+                TSE.AudioManager.playSound("flap");
+            }
+        };
+        PlayerBehavior.prototype.onRestart = function (y) {
+            this._owner.transform.rotation.z = 0;
+            this._owner.transform.position.set(33, y);
+            this._velocity.set(0, 0);
+            this._acceleration.set(0, 920);
+            this._isAlive = true;
+            this._sprite.play();
+        };
+        return PlayerBehavior;
+    }(TSE.BaseBehavior));
+    TSE.PlayerBehavior = PlayerBehavior;
+    // auto register
+    TSE.BehaviorManager.registerBuilder(new PlayerBehaviorBuilder());
+})(TSE || (TSE = {}));
+/// <reference path="basebehavior.ts" />
+/// <reference path="behaviormanager.ts" />
+var TSE;
+(function (TSE) {
     var RotationBehaviorData = /** @class */ (function () {
         function RotationBehaviorData() {
             this.rotation = TSE.Vector3.zero;
@@ -424,6 +631,133 @@ var TSE;
 })(TSE || (TSE = {}));
 var TSE;
 (function (TSE) {
+    var ScrollBehaviorData = /** @class */ (function () {
+        function ScrollBehaviorData() {
+            this.velocity = TSE.Vector2.zero;
+            this.minPosition = TSE.Vector2.zero;
+            this.resetPosition = TSE.Vector2.zero;
+        }
+        ScrollBehaviorData.prototype.setFromJson = function (json) {
+            if (json.name === undefined) {
+                throw new Error("Name must be defined in behavior data.");
+            }
+            this.name = String(json.name);
+            if (json.startMessage !== undefined) {
+                this.startMessage = String(json.startMessage);
+            }
+            if (json.stopMessage !== undefined) {
+                this.stopMessage = String(json.stopMessage);
+            }
+            if (json.resetMessage !== undefined) {
+                this.resetMessage = String(json.resetMessage);
+            }
+            if (json.velocity !== undefined) {
+                this.velocity.setFromJson(json.velocity);
+            }
+            else {
+                throw new Error("ScrollBehaviorData requires property 'velocity' to be defined!");
+            }
+            if (json.minPosition !== undefined) {
+                this.minPosition.setFromJson(json.minPosition);
+            }
+            else {
+                throw new Error("ScrollBehaviorData requires property 'minPosition' to be defined!");
+            }
+            if (json.resetPosition !== undefined) {
+                this.resetPosition.setFromJson(json.resetPosition);
+            }
+            else {
+                throw new Error("ScrollBehaviorData requires property 'resetPosition' to be defined!");
+            }
+        };
+        return ScrollBehaviorData;
+    }());
+    TSE.ScrollBehaviorData = ScrollBehaviorData;
+    var ScrollBehaviorBuilder = /** @class */ (function () {
+        function ScrollBehaviorBuilder() {
+        }
+        Object.defineProperty(ScrollBehaviorBuilder.prototype, "type", {
+            get: function () {
+                return "scroll";
+            },
+            enumerable: false,
+            configurable: true
+        });
+        ScrollBehaviorBuilder.prototype.buildFromJson = function (json) {
+            var data = new ScrollBehaviorData();
+            data.setFromJson(json);
+            return new ScrollBehavior(data);
+        };
+        return ScrollBehaviorBuilder;
+    }());
+    TSE.ScrollBehaviorBuilder = ScrollBehaviorBuilder;
+    var ScrollBehavior = /** @class */ (function (_super) {
+        __extends(ScrollBehavior, _super);
+        function ScrollBehavior(data) {
+            var _this = _super.call(this, data) || this;
+            _this._velocity = TSE.Vector2.zero;
+            _this._minPosition = TSE.Vector2.zero;
+            _this._resetPosition = TSE.Vector2.zero;
+            _this._isScrolling = false;
+            _this._initialPosition = TSE.Vector2.zero;
+            _this._velocity.copyFrom(data.velocity);
+            _this._minPosition.copyFrom(data.minPosition);
+            _this._resetPosition.copyFrom(data.resetPosition);
+            _this._startMessage = data.startMessage;
+            _this._stopMessage = data.stopMessage;
+            _this._resetMessage = data.resetMessage;
+            return _this;
+        }
+        ScrollBehavior.prototype.updateReady = function () {
+            _super.prototype.updateReady.call(this);
+            if (this._startMessage !== undefined) {
+                TSE.Message.subscribe(this._startMessage, this);
+            }
+            if (this._stopMessage !== undefined) {
+                TSE.Message.subscribe(this._stopMessage, this);
+            }
+            if (this._resetMessage !== undefined) {
+                TSE.Message.subscribe(this._resetMessage, this);
+            }
+            // update initial position
+            // VECTOR 2 TEMPORARY
+            this._initialPosition.copyFrom(this._owner.transform.position.toVector2());
+        };
+        ScrollBehavior.prototype.update = function (time) {
+            if (this._isScrolling) {
+                // scale time to be in seconds
+                this._owner.transform.position.add(this._velocity.clone().scale(time / 1000).toVector3());
+                if (this._owner.transform.position.x <= this._minPosition.x &&
+                    this._owner.transform.position.y <= this._minPosition.y) {
+                    this.reset();
+                }
+            }
+        };
+        ScrollBehavior.prototype.onMessage = function (message) {
+            if (message.code === this._startMessage) {
+                this._isScrolling = true;
+            }
+            else if (message.code === this._stopMessage) {
+                this._isScrolling = false;
+            }
+            else if (message.code === this._resetMessage) {
+                this.initial();
+            }
+        };
+        ScrollBehavior.prototype.reset = function () {
+            this._owner.transform.position.copyFrom(this._resetPosition.toVector3());
+        };
+        ScrollBehavior.prototype.initial = function () {
+            this._owner.transform.position.copyFrom(this._resetPosition.toVector3());
+        };
+        return ScrollBehavior;
+    }(TSE.BaseBehavior));
+    TSE.ScrollBehavior = ScrollBehavior;
+    // add behavior to manager
+    TSE.BehaviorManager.registerBuilder(new ScrollBehaviorBuilder());
+})(TSE || (TSE = {}));
+var TSE;
+(function (TSE) {
     var CollisionData = /** @class */ (function () {
         function CollisionData(time, a, b) {
             this.time = time;
@@ -464,6 +798,12 @@ var TSE;
                     if (comp === other) {
                         continue;
                     }
+                    // optimization
+                    // if both shapes are static, stop detection
+                    if (comp.isStatic && other.isStatic) {
+                        continue;
+                    }
+                    // intercept check
                     if (comp.shape.intersect(other.shape)) {
                         // we have a collision!
                         var exists = false;
@@ -735,9 +1075,13 @@ var TSE;
             }
             return _this;
         }
-        AnimatedSpriteComponent.prototype.isPlaying = function () {
-            return this._sprite.isPlaying;
-        };
+        Object.defineProperty(AnimatedSpriteComponent.prototype, "isPlaying", {
+            get: function () {
+                return this._sprite.isPlaying;
+            },
+            enumerable: false,
+            configurable: true
+        });
         AnimatedSpriteComponent.prototype.load = function () {
             this._sprite.load();
         };
@@ -775,10 +1119,14 @@ var TSE;
 (function (TSE) {
     var CollisionComponentData = /** @class */ (function () {
         function CollisionComponentData() {
+            this.static = true;
         }
         CollisionComponentData.prototype.setFromJson = function (json) {
             if (json.name !== undefined) {
                 this.name = String(json.name);
+            }
+            if (json.static !== undefined) {
+                this.static = Boolean(json.static);
             }
             // check if shape exists
             if (json.shape === undefined) {
@@ -834,6 +1182,7 @@ var TSE;
         function CollisionComponent(data) {
             var _this = _super.call(this, data) || this;
             _this._shape = data.shape;
+            _this._static = data.static;
             return _this;
         }
         Object.defineProperty(CollisionComponent.prototype, "shape", {
@@ -843,10 +1192,17 @@ var TSE;
             enumerable: false,
             configurable: true
         });
+        Object.defineProperty(CollisionComponent.prototype, "isStatic", {
+            get: function () {
+                return this._static;
+            },
+            enumerable: false,
+            configurable: true
+        });
         CollisionComponent.prototype.load = function () {
             _super.prototype.load.call(this);
             // TODO: update this to handle nested objects
-            this._shape.position.copyFrom(this.owner.transform.position.toVector2().add(this._shape.offset));
+            this._shape.position.copyFrom(this.owner.getWorldPosition().toVector2().subtract(this._shape.offset));
             // tell the collision manager that we exist
             TSE.CollisionManager.registerCollisionComponent(this);
         };
@@ -856,7 +1212,7 @@ var TSE;
          */
         CollisionComponent.prototype.update = function (time) {
             // TODO: update this to handle nested objects
-            this._shape.position.copyFrom(this.owner.transform.position.toVector2().add(this._shape.offset));
+            this._shape.position.copyFrom(this.owner.getWorldPosition().toVector2().subtract(this._shape.offset));
             _super.prototype.update.call(this, time);
         };
         //** Collsiion boxes do not render, except for debugging */
@@ -868,7 +1224,7 @@ var TSE;
             console.log("onCollisionEntry: ", this, other);
         };
         CollisionComponent.prototype.onCollisionUpdate = function (other) {
-            console.log("onCollisionUpdate: ", this, other);
+            //console.log("onCollisionUpdate: ", this, other);
         };
         CollisionComponent.prototype.onCollisionExit = function (other) {
             console.log("onCollisionExit: ", this, other);
@@ -916,10 +1272,13 @@ var TSE;
             // load materials
             TSE.MaterialManager.registerMaterial(new TSE.Material("leaves", "assets/textures/dk64-leaves.png", TSE.Color.white()));
             TSE.MaterialManager.registerMaterial(new TSE.Material("duck", "assets/textures/duck.png", TSE.Color.white()));
-            //MaterialManager.registerMaterial(new Material("grass", "assets/textures/grass.png", Color.white()));
+            TSE.MaterialManager.registerMaterial(new TSE.Material("grass", "assets/textures/grass.png", TSE.Color.white()));
+            TSE.MaterialManager.registerMaterial(new TSE.Material("bg", "assets/textures/bg.png", TSE.Color.white()));
+            TSE.MaterialManager.registerMaterial(new TSE.Material("end", "assets/textures/end.png", TSE.Color.white()));
+            TSE.MaterialManager.registerMaterial(new TSE.Material("middle", "assets/textures/middle.png", TSE.Color.white()));
             TSE.AudioManager.loadSoundFile("flap", "assets/sounds/flap.mp3", false);
-            //AudioManager.loadSoundFile("flap", "assets/sounds/ting.mp3", false);
-            //AudioManager.loadSoundFile("flap", "assets/sounds/dead.mp3", false);
+            TSE.AudioManager.loadSoundFile("ting", "assets/sounds/ting.mp3", false);
+            TSE.AudioManager.loadSoundFile("dead", "assets/sounds/dead.mp3", false);
             // load
             this._projection = TSE.Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
             // TEMPORARY
@@ -1320,6 +1679,9 @@ var TSE;
             this._height = height;
             this._materialName = materialName;
             this._material = TSE.MaterialManager.getMaterial(this._materialName);
+            if (name === "grass") {
+                console.log("GROUND SPRITE");
+            }
         }
         Object.defineProperty(Sprite.prototype, "name", {
             get: function () {
@@ -1336,6 +1698,20 @@ var TSE;
                 this._origin = value;
                 // when origin is set
                 this.recalculateVertices();
+            },
+            enumerable: false,
+            configurable: true
+        });
+        Object.defineProperty(Sprite.prototype, "width", {
+            get: function () {
+                return this._width;
+            },
+            enumerable: false,
+            configurable: true
+        });
+        Object.defineProperty(Sprite.prototype, "height", {
+            get: function () {
+                return this._height;
             },
             enumerable: false,
             configurable: true
@@ -1391,8 +1767,8 @@ var TSE;
             // calculate offset from origin
             var minX = -(this._width * this._origin.x);
             var maxX = this._width * (1.0 - this._origin.x);
-            var minY = -(this._width * this._origin.y);
-            var maxY = this._width * (1.0 - this._origin.y);
+            var minY = -(this._height * this._origin.y);
+            var maxY = this._height * (1.0 - this._origin.y);
             this._vertices = [
                 // x, y, z	, u, v
                 new TSE.Vertex(minX, minY, 0, 0, 0),
@@ -1419,6 +1795,7 @@ var TSE;
             this._vertices[0].position.set(minX, minY);
             this._vertices[1].position.set(minX, maxY);
             this._vertices[2].position.set(maxX, maxY);
+            // 3, 4, 5
             this._vertices[3].position.set(maxX, maxY);
             this._vertices[4].position.set(maxX, minY);
             this._vertices[5].position.set(minX, minY);
@@ -1427,6 +1804,11 @@ var TSE;
                 var v = _a[_i];
                 // hey wgl, we want to pass you info
                 this._buffer.pushBackData(v.toArray());
+            }
+            if (this._height == 11) {
+                console.log("GRASS COMPONENT");
+                console.log(this._width);
+                console.log(this._height);
             }
             this._buffer.upload();
             this._buffer.unbind();
@@ -1922,7 +2304,7 @@ var TSE;
         function Rectangle2D() {
             this.position = TSE.Vector2.zero;
             // temporary fix for boundary positions
-            this.origin = new TSE.Vector2(0.5, 0.5);
+            this.origin = TSE.Vector2.zero;
         }
         Object.defineProperty(Rectangle2D.prototype, "offset", {
             /**
@@ -1955,12 +2337,10 @@ var TSE;
             // case when other shape is rectangle
             if (other instanceof Rectangle2D) {
                 // check if any of the four corners of the bounding rectangle intersect
-                if (this.pointInShape(other.position) ||
+                return (this.pointInShape(other.position) ||
                     this.pointInShape(new TSE.Vector2(other.position.x + other.width, other.position.y)) ||
                     this.pointInShape(new TSE.Vector2(other.position.x + other.width, other.position.y + other.height)) ||
-                    this.pointInShape(new TSE.Vector2(other.position.x, other.position.y + other.height))) {
-                    return true;
-                }
+                    this.pointInShape(new TSE.Vector2(other.position.x, other.position.y + other.height)));
             }
             if (other instanceof TSE.Circle2D) {
                 var deltaX = other.position.x - Math.max(this.position.x, Math.min(other.position.x, this.position.x + this.width));
@@ -1973,12 +2353,12 @@ var TSE;
         };
         // check if a point is inside the shape
         Rectangle2D.prototype.pointInShape = function (point) {
-            // check x axis
-            if (point.x >= this.position.x && point.x <= this.position.x + this.width) {
-                // check y axis
-                if (point.y >= this.position.y && point.y <= this.position.y + this.height) {
-                    return true;
-                }
+            var x = this.width < 0 ? this.position.x - this.width : this.position.x;
+            var y = this.width < 0 ? this.position.y - this.width : this.position.y;
+            var extentX = this.width < 0 ? this.position.x : this.position.x + this.width;
+            var extentY = this.width < 0 ? this.position.y : this.position.y + this.width;
+            if (point.x >= x && point.x <= extentX && point.y >= y && point.y <= extentY) {
+                return true;
             }
             // if shape is unknown then don't intersect
             return false;
@@ -2076,11 +2456,15 @@ var TSE;
         Texture.prototype.loadTextureFromAsset = function (asset) {
             this._width = asset.width;
             this._height = asset.height;
+            console.log(this._name);
+            console.log("x: " + this._width);
+            console.log("y: " + this._height);
             this.bind();
             // loading an image into the texture
             TSE.gl.texImage2D(TSE.gl.TEXTURE_2D, LEVEL, TSE.gl.RGBA, TSE.gl.RGBA, TSE.gl.UNSIGNED_BYTE, asset.data);
             if (this.isPowerof2()) {
                 TSE.gl.generateMipmap(TSE.gl.TEXTURE_2D);
+                console.log("MIPMAPS");
             }
             else {
                 // do not generate a mip map and clamp wrapping to edge
@@ -3112,6 +3496,9 @@ var TSE;
                 var c = _c[_b];
                 c.render(shader);
             }
+        };
+        SimObject.prototype.getWorldPosition = function () {
+            return new TSE.Vector3(this.worldMatrix.data[12], this.worldMatrix.data[13], this.worldMatrix.data[14]);
         };
         // protected becuase if any classes override simobject then they should take advantage of this
         // called when a new child is added

@@ -58,6 +58,13 @@
 						continue;
 					}
 
+					// optimization
+					// if both shapes are static, stop detection
+					if (comp.isStatic && other.isStatic) {
+						continue;
+					}
+
+					// intercept check
 					if (comp.shape.intersect(other.shape)) {
 
 						// we have a collision!

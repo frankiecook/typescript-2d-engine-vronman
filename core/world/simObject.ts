@@ -192,6 +192,10 @@
 			}
 		}
 
+		public getWorldPosition(): Vector3 {
+			return new Vector3(this.worldMatrix.data[12], this.worldMatrix.data[13], this.worldMatrix.data[14]);
+		}
+
 		// protected becuase if any classes override simobject then they should take advantage of this
 		// called when a new child is added
 		protected onAdded(scene: Scene): void {

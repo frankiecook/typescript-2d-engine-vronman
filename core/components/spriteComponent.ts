@@ -74,6 +74,7 @@ namespace TSE {
 		}
 
 		public render(shader: Shader) {
+			
 			this._sprite.draw(shader, this.owner.worldMatrix);
 
 			super.render(shader);

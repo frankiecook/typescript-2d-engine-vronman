@@ -5,11 +5,17 @@ namespace TSE {
 	export class CollisionComponentData implements IComponentData {
 		public name: string;
 		public shape: IShape2D;
+		public static: boolean = true;
 
 		public setFromJson(json: any): void {
 			if (json.name !== undefined) {
 				this.name = String(json.name);
 			}
+
+			if (json.static !== undefined) {
+				this.static = Boolean(json.static);
+			}
+
 
 			// check if shape exists
 			if (json.shape === undefined) {
@@ -57,22 +63,28 @@ namespace TSE {
 	export class CollisionComponent extends BaseComponent {
 
 		private _shape: IShape2D;
+		private _static: boolean;
 
 		public constructor(data: CollisionComponentData) {
 			super(data);
 
 			this._shape = data.shape;
+			this._static = data.static;
 		}
 
 		public get shape(): IShape2D {
 			return this._shape;
 		}
 
+		public get isStatic(): boolean {
+			return this._static;
+		}
+
 		public load(): void {
 			super.load();
 
 			// TODO: update this to handle nested objects
-			this._shape.position.copyFrom(this.owner.transform.position.toVector2().add(this._shape.offset));
+			this._shape.position.copyFrom(this.owner.getWorldPosition().toVector2().subtract(this._shape.offset));
 
 			// tell the collision manager that we exist
 			CollisionManager.registerCollisionComponent(this);
@@ -85,7 +97,7 @@ namespace TSE {
 		public update(time: number): void {
 
 			// TODO: update this to handle nested objects
-			this._shape.position.copyFrom(this.owner.transform.position.toVector2().add(this._shape.offset));
+			this._shape.position.copyFrom(this.owner.getWorldPosition().toVector2().subtract(this._shape.offset));
 
 			super.update(time);
 		}
@@ -102,7 +114,7 @@ namespace TSE {
 		}
 
 		public onCollisionUpdate(other: CollisionComponent): void {
-			console.log("onCollisionUpdate: ", this, other);
+			//console.log("onCollisionUpdate: ", this, other);
 		}
 
 		public onCollisionExit(other: CollisionComponent): void {
