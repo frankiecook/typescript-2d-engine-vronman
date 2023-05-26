@@ -585,7 +585,7 @@
 			"transform": {
 				"position": {
 					"x": 33,
-					"y": 100
+					"y": 200
 				},
 				"scale": {
 					"x": 2,
@@ -632,6 +632,24 @@
 					"groundCollisionComponent": "groundCollision"
 				}
 			]
+		},
+		{
+			"name": "testTextObj",
+			"transform": {
+				"position": {
+					"x": 130,
+					"y": 30
+				}
+			},
+			"components": [
+				{
+					"name": "testText",
+					"type": "bitmapText",
+					"text": "0",
+					"fontName": "default"
+				}
+			],
+			"behaviors": []
 		}
 	]
 }

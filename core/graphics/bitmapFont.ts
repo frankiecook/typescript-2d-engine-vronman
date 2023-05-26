@@ -51,6 +51,11 @@
 		private _imageWidth: number;
 		private _imageHeight: number;
 
+		public constructor(name: string, fontFile: string) {
+			this._name = name;
+			this._fontFileName = fontFile;
+		}
+
 		public get name(): string {
 			return this._name;
 		}
@@ -162,7 +167,7 @@
 
 							this._imageFile = FontUtilities.extractFieldValue(fields[2]);
 							// strip quotes
-							this._imageFile.replace(/"/g, "");
+							this._imageFile = this._imageFile.replace(/"/g, "");
 
 							// prepend the path to the image name
 							this._imageFile = ("assets/fonts" + this._imageFile).trim();
@@ -196,7 +201,7 @@
 				}
 			}
 
-			if (actualGlyphCount !== undefined) {
+			if (actualGlyphCount === undefined) {
 				throw new Error("Font file reported extistence of ${charCount} glyphs, but only ${actualGlyphcount} were found.");
 			}
 

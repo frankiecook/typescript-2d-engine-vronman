@@ -159,12 +159,6 @@
 				this._buffer.pushBackData(v.toArray());
 			}
 
-			if (this._height == 11) {
-				console.log("GRASS COMPONENT");
-				console.log(this._width);
-				console.log(this._height);
-			}
-
 			this._buffer.upload();
 			this._buffer.unbind();
 		}

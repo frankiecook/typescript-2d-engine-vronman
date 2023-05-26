@@ -21,9 +21,6 @@
 
 			this._handle = gl.createTexture();
 
-			// subscribe to listen for when a texture is loaded
-			Message.subscribe(MESSAGE_ASSET_LOADER_ASSET_LOADED + this._name, this);
-
 			this.bind();
 
 			// loading raw data into texture
@@ -33,8 +30,12 @@
 			// check if the texture already exists in an already loaded asset
 			let asset = AssetManager.getAsset(this.name) as ImageAsset;
 
+			// assets could potentially be loaded already in the cache
 			if (asset !== undefined) {
 				this.loadTextureFromAsset(asset);
+			} else {
+				// subscribe to listen for when a texture is loaded
+				Message.subscribe(MESSAGE_ASSET_LOADER_ASSET_LOADED + this._name, this);
 			}
 		}
 
@@ -92,9 +93,6 @@
 		private loadTextureFromAsset(asset: ImageAsset): void {
 			this._width = asset.width;
 			this._height = asset.height;
-			console.log(this._name);
-			console.log("x: " + this._width);
-			console.log("y: " + this._height);
 			this.bind();
 
 			// loading an image into the texture

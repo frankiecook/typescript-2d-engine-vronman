@@ -1156,6 +1156,74 @@ var TSE;
     // as soon as file is loaded, register
     TSE.ComponentManager.registerBuilder(new AnimatedSpriteComponentBuilder());
 })(TSE || (TSE = {}));
+var TSE;
+(function (TSE) {
+    var BitmapTextComponentData = /** @class */ (function () {
+        function BitmapTextComponentData() {
+            this.origin = TSE.Vector3.zero;
+        }
+        BitmapTextComponentData.prototype.setFromJson = function (json) {
+            if (json.name !== undefined) {
+                this.name = String(json.name);
+            }
+            if (json.fontName !== undefined) {
+                this.fontName = String(json.fontName);
+            }
+            if (json.text !== undefined) {
+                this.text = String(json.text);
+            }
+            if (json.origin !== undefined) {
+                this.origin.setFromJson(json.origin);
+            }
+        };
+        return BitmapTextComponentData;
+    }());
+    TSE.BitmapTextComponentData = BitmapTextComponentData;
+    var BitmapTextComponentBuilder = /** @class */ (function () {
+        function BitmapTextComponentBuilder() {
+        }
+        Object.defineProperty(BitmapTextComponentBuilder.prototype, "type", {
+            get: function () {
+                return "bitmapText";
+            },
+            enumerable: false,
+            configurable: true
+        });
+        BitmapTextComponentBuilder.prototype.buildFromJson = function (json) {
+            var data = new BitmapTextComponentData();
+            data.setFromJson(json);
+            return new BitmapTextComponent(data);
+        };
+        return BitmapTextComponentBuilder;
+    }());
+    TSE.BitmapTextComponentBuilder = BitmapTextComponentBuilder;
+    var BitmapTextComponent = /** @class */ (function (_super) {
+        __extends(BitmapTextComponent, _super);
+        function BitmapTextComponent(data) {
+            var _this = _super.call(this, data) || this;
+            _this._fontName = data.fontName;
+            _this._bitmapText = new TSE.BitmapText(_this.name, _this._fontName);
+            if (!data.origin.equals(TSE.Vector3.zero)) {
+                _this._bitmapText.origin.copyFrom(data.origin);
+            }
+            _this._bitmapText.text = data.text;
+            return _this;
+        }
+        BitmapTextComponent.prototype.load = function () {
+            this._bitmapText.load();
+        };
+        BitmapTextComponent.prototype.update = function (time) {
+            this._bitmapText.update(time);
+        };
+        BitmapTextComponent.prototype.render = function (shader) {
+            this._bitmapText.draw(shader, this.owner.worldMatrix);
+            _super.prototype.render.call(this, shader);
+        };
+        return BitmapTextComponent;
+    }(TSE.BaseComponent));
+    TSE.BitmapTextComponent = BitmapTextComponent;
+    TSE.ComponentManager.registerBuilder(new BitmapTextComponentBuilder());
+})(TSE || (TSE = {}));
 /// <reference path="componentmanager.ts" />
 var TSE;
 (function (TSE) {
@@ -1311,6 +1379,9 @@ var TSE;
             this._basicShader = new TSE.BasicShader();
             this._basicShader.use();
             this._projection = TSE.Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
+            // load fonts
+            TSE.BitmapFontManager.addFont("default", "assets/fonts/text.txt");
+            TSE.BitmapFontManager.load();
             // load materials
             TSE.MaterialManager.registerMaterial(new TSE.Material("leaves", "assets/textures/dk64-leaves.png", TSE.Color.white()));
             TSE.MaterialManager.registerMaterial(new TSE.Material("duck", "assets/textures/duck.png", TSE.Color.white()));
@@ -1323,10 +1394,9 @@ var TSE;
             TSE.AudioManager.loadSoundFile("dead", "assets/sounds/dead.mp3", false);
             // load
             this._projection = TSE.Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
-            // TEMPORARY
-            TSE.ZoneManager.changeZone(0);
             this.resize();
-            this.loop();
+            // begin the preloading phase, which waits for various thingsto be loaded before starting the game
+            this.preloading();
         };
         /**
          * Resizes the canvas to fit the window
@@ -1354,6 +1424,23 @@ var TSE;
         Engine.prototype.loop = function () {
             this.update();
             this.render();
+            // runs about 60 fps, originally designed for animations 
+            // .bind(this) is calling loop() for THIS instance of the engine
+            requestAnimationFrame(this.loop.bind(this));
+        };
+        // operates on a game loop of its own but in a different state
+        Engine.prototype.preloading = function () {
+            // make sure to always update the message bus
+            TSE.MessageBus.update(0);
+            // bitmap fonts are 'system level' and need to be running for the engine to operate
+            if (!TSE.BitmapFontManager.updateReady()) {
+                requestAnimationFrame(this.preloading.bind(this));
+                return;
+            }
+            // load up our zone TODO: make this configurable
+            TSE.ZoneManager.changeZone(0);
+            // kick off the loop
+            this.loop();
         };
         Engine.prototype.update = function () {
             // calculate time
@@ -1371,9 +1458,6 @@ var TSE;
             TSE.ZoneManager.render(this._basicShader);
             var projectionPosition = this._basicShader.getUniformLocation("u_projection");
             TSE.gl.uniformMatrix4fv(projectionPosition, false, new Float32Array(this._projection.data));
-            // runs about 60 fps, originally designed for animations 
-            // .bind(this) is calling loop() for THIS instance of the engine
-            requestAnimationFrame(this.loop.bind(this));
         };
         return Engine;
     }());
@@ -1847,11 +1931,6 @@ var TSE;
                 // hey wgl, we want to pass you info
                 this._buffer.pushBackData(v.toArray());
             }
-            if (this._height == 11) {
-                console.log("GRASS COMPONENT");
-                console.log(this._width);
-                console.log(this._height);
-            }
             this._buffer.upload();
             this._buffer.unbind();
         };
@@ -2072,9 +2151,11 @@ var TSE;
     }());
     TSE.FontGlyph = FontGlyph;
     var BitmapFont = /** @class */ (function () {
-        function BitmapFont() {
+        function BitmapFont(name, fontFile) {
             this._assetLoaded = false;
             this._glyphs = {};
+            this._name = name;
+            this._fontFileName = fontFile;
         }
         Object.defineProperty(BitmapFont.prototype, "name", {
             get: function () {
@@ -2196,7 +2277,7 @@ var TSE;
                             var id = Number(FontUtilities.extractFieldValue(fields[1]));
                             this._imageFile = FontUtilities.extractFieldValue(fields[2]);
                             // strip quotes
-                            this._imageFile.replace(/"/g, "");
+                            this._imageFile = this._imageFile.replace(/"/g, "");
                             // prepend the path to the image name
                             this._imageFile = ("assets/fonts" + this._imageFile).trim();
                         }
@@ -2226,7 +2307,7 @@ var TSE;
                     actualGlyphCount++;
                 }
             }
-            if (actualGlyphCount !== undefined) {
+            if (actualGlyphCount === undefined) {
                 throw new Error("Font file reported extistence of ${charCount} glyphs, but only ${actualGlyphcount} were found.");
             }
             this._assetLoaded = true;
@@ -2468,6 +2549,194 @@ var TSE;
 })(TSE || (TSE = {}));
 var TSE;
 (function (TSE) {
+    var BitmapFontManager = /** @class */ (function () {
+        function BitmapFontManager() {
+        }
+        BitmapFontManager.addFont = function (name, fontFileName) {
+            BitmapFontManager._fonts[name] = new TSE.BitmapFont(name, fontFileName);
+        };
+        BitmapFontManager.getFont = function (name) {
+            if (BitmapFontManager._fonts[name] === undefined) {
+                throw new Error("A font named " + name + " does not exist.");
+            }
+            return BitmapFontManager._fonts[name];
+        };
+        /**
+        * Load any registered fonts
+        */
+        BitmapFontManager.load = function () {
+            var keys = Object.keys(BitmapFontManager._fonts);
+            for (var _i = 0, keys_2 = keys; _i < keys_2.length; _i++) {
+                var key = keys_2[_i];
+                BitmapFontManager._fonts[key].load();
+            }
+        };
+        /**
+         * Check if fonts are loaded
+         */
+        BitmapFontManager.updateReady = function () {
+            var keys = Object.keys(BitmapFontManager._fonts);
+            for (var _i = 0, keys_3 = keys; _i < keys_3.length; _i++) {
+                var key = keys_3[_i];
+                if (!BitmapFontManager._fonts[key].isLoaded) {
+                    console.debug("Font " + key + " is still laoding...");
+                    return false;
+                }
+            }
+            console.debug("All fonts are loaded.");
+            return true;
+        };
+        BitmapFontManager._fonts = {};
+        return BitmapFontManager;
+    }());
+    TSE.BitmapFontManager = BitmapFontManager;
+})(TSE || (TSE = {}));
+/**
+ * Drives the rendering of the text editor
+ */
+var TSE;
+(function (TSE) {
+    var BitmapText = /** @class */ (function () {
+        function BitmapText(name, fontName) {
+            this._isDirty = false;
+            this._origin = TSE.Vector3.zero;
+            this._vertices = [];
+            this._name = name;
+            this._fontName = fontName;
+        }
+        Object.defineProperty(BitmapText.prototype, "name", {
+            get: function () {
+                return this._name;
+            },
+            enumerable: false,
+            configurable: true
+        });
+        Object.defineProperty(BitmapText.prototype, "text", {
+            get: function () {
+                return this._text;
+            },
+            set: function (value) {
+                if (this._text !== value) {
+                    this._text = value;
+                    this._isDirty = true;
+                }
+            },
+            enumerable: false,
+            configurable: true
+        });
+        Object.defineProperty(BitmapText.prototype, "origin", {
+            get: function () {
+                return this._origin;
+            },
+            set: function (value) {
+                this._origin = value;
+                this.calculateVertices();
+            },
+            enumerable: false,
+            configurable: true
+        });
+        BitmapText.prototype.destroy = function () {
+            this._buffer.destroy();
+            this._material.destroy();
+            this._material = undefined;
+        };
+        BitmapText.prototype.load = function () {
+            this._bitmapFont = TSE.BitmapFontManager.getFont(this._fontName);
+            this._material = new TSE.Material('BITMAP_FONT_${this.name}', this._bitmapFont.textureName, TSE.Color.white());
+            this._buffer = new TSE.GLBuffer();
+            // set up attributes
+            var positionAttribute = new TSE.AttributeInfo();
+            positionAttribute.location = 0;
+            positionAttribute.size = 3;
+            this._buffer.addAttributeLocation(positionAttribute);
+            var texCoordAttribute = new TSE.AttributeInfo();
+            texCoordAttribute.location = 0;
+            texCoordAttribute.size = 3;
+            this._buffer.addAttributeLocation(texCoordAttribute);
+        };
+        BitmapText.prototype.update = function (time) {
+            if (this._isDirty && this._bitmapFont.isLoaded) {
+                this.calculateVertices();
+                this._isDirty = false;
+            }
+        };
+        BitmapText.prototype.draw = function (shader, model) {
+            var modelLocation = shader.getUniformLocation("u_model");
+            TSE.gl.uniformMatrix4fv(modelLocation, false, model.toFloat32Array());
+            var colorLocation = shader.getUniformLocation("u_tint");
+            TSE.gl.uniform4fv(colorLocation, this._material.tint.toFloat32Array());
+            if (this._material.diffuseTexture !== undefined) {
+                this._material.diffuseTexture.activateAndBind(0);
+                var diffuseLocation = shader.getUniformLocation("u_diffuse");
+                TSE.gl.uniform1i(diffuseLocation, 0);
+            }
+            this._buffer.bind();
+            this._buffer.draw();
+        };
+        /**
+         * takes all the text and convertes it to images to be drawn
+         */
+        BitmapText.prototype.calculateVertices = function () {
+            this._vertices.length = 0;
+            this._buffer.clearData();
+            var x = 0;
+            var y = 0;
+            for (var _i = 0, _a = this._text; _i < _a.length; _i++) {
+                var c = _a[_i];
+                if (c === "\n") {
+                    x = 0;
+                    y += this._bitmapFont.size;
+                    continue;
+                }
+                var g = this._bitmapFont.getGlyph(c);
+                // points for vertices
+                var minX = x + g.xOffset;
+                var minY = y + g.yOffset;
+                var maxX = minX + g.width;
+                var maxY = minY + g.height;
+                // texture coordinates
+                // converts pixel space of the image to be range 0-1
+                var minu = g.x / this._bitmapFont.imageWidth;
+                var minv = g.y / this._bitmapFont.imageHeight;
+                var maxu = (g.x + g.width) / this._bitmapFont.imageWidth;
+                var maxv = (g.y + g.height) / this._bitmapFont.imageHeight;
+                // quad creation for the images of letters
+                /*this._vertices.push(new Vertex(minX, minY, 0, minu, minv));
+                this._vertices.push(new Vertex(minX, maxY, 0, minu, maxv));
+                this._vertices.push(new Vertex(maxX, maxY, 0, maxu, maxv));
+
+                this._vertices.push(new Vertex(maxX, maxY, 0, maxu, maxv));
+                this._vertices.push(new Vertex(maxX, minY, 0, maxu, minv));
+                this._vertices.push(new Vertex(minX, minY, 0, minu, minv));*/
+                minX = 0;
+                minY = 0;
+                maxX = 100;
+                maxY = 100;
+                minu = 0;
+                minv = 0;
+                maxu = 10;
+                maxu = 10;
+                this._vertices.push(new TSE.Vertex(minX, minY, 0, minu, minv));
+                this._vertices.push(new TSE.Vertex(minX, maxY, 0, minu, maxv));
+                this._vertices.push(new TSE.Vertex(maxX, maxY, 0, maxu, maxv));
+                this._vertices.push(new TSE.Vertex(maxX, minY, 0, maxu, minv));
+                this._vertices.push(new TSE.Vertex(minX, minY, 0, minu, minv));
+                this._vertices.push(new TSE.Vertex(maxX, maxY, 0, maxu, maxv));
+                x += g.xAdvance;
+            }
+            for (var _b = 0, _c = this._vertices; _b < _c.length; _b++) {
+                var v = _c[_b];
+                this._buffer.pushBackData(v.toArray());
+            }
+            this._buffer.upload();
+            this._buffer.unbind();
+        };
+        return BitmapText;
+    }());
+    TSE.BitmapText = BitmapText;
+})(TSE || (TSE = {}));
+var TSE;
+(function (TSE) {
     var Circle2D = /** @class */ (function () {
         function Circle2D() {
             this.position = TSE.Vector2.zero;
@@ -2620,16 +2889,19 @@ var TSE;
             this._width = width;
             this._height = height;
             this._handle = TSE.gl.createTexture();
-            // subscribe to listen for when a texture is loaded
-            TSE.Message.subscribe(TSE.MESSAGE_ASSET_LOADER_ASSET_LOADED + this._name, this);
             this.bind();
             // loading raw data into texture
             TSE.gl.texImage2D(TSE.gl.TEXTURE_2D, LEVEL, TSE.gl.RGBA, 1, 1, BORDER, TSE.gl.RGBA, TSE.gl.UNSIGNED_BYTE, TEMP_IMAGE_DATA);
             // START asset loading
             // check if the texture already exists in an already loaded asset
             var asset = TSE.AssetManager.getAsset(this.name);
+            // assets could potentially be loaded already in the cache
             if (asset !== undefined) {
                 this.loadTextureFromAsset(asset);
+            }
+            else {
+                // subscribe to listen for when a texture is loaded
+                TSE.Message.subscribe(TSE.MESSAGE_ASSET_LOADER_ASSET_LOADED + this._name, this);
             }
         }
         Object.defineProperty(Texture.prototype, "name", {
@@ -2693,9 +2965,6 @@ var TSE;
         Texture.prototype.loadTextureFromAsset = function (asset) {
             this._width = asset.width;
             this._height = asset.height;
-            console.log(this._name);
-            console.log("x: " + this._width);
-            console.log("y: " + this._height);
             this.bind();
             // loading an image into the texture
             TSE.gl.texImage2D(TSE.gl.TEXTURE_2D, LEVEL, TSE.gl.RGBA, TSE.gl.RGBA, TSE.gl.UNSIGNED_BYTE, asset.data);

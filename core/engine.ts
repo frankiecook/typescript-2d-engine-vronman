@@ -50,6 +50,10 @@ namespace TSE {
 
 			this._projection = Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
 
+			// load fonts
+			BitmapFontManager.addFont("default", "assets/fonts/text.txt");
+			BitmapFontManager.load();
+
 			// load materials
 			MaterialManager.registerMaterial(new Material("leaves", "assets/textures/dk64-leaves.png", Color.white()));
 			MaterialManager.registerMaterial(new Material("duck", "assets/textures/duck.png", Color.white()));
@@ -65,11 +69,10 @@ namespace TSE {
 			// load
 			this._projection = Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
 
-			// TEMPORARY
-			ZoneManager.changeZone(0);
-
 			this.resize();
-			this.loop();
+
+			// begin the preloading phase, which waits for various thingsto be loaded before starting the game
+			this.preloading();
 		}
 
 		/**
@@ -102,6 +105,29 @@ namespace TSE {
 		private loop(): void {
 			this.update();
 			this.render();
+
+			// runs about 60 fps, originally designed for animations 
+			// .bind(this) is calling loop() for THIS instance of the engine
+			requestAnimationFrame(this.loop.bind(this));
+		}
+
+		// operates on a game loop of its own but in a different state
+		private preloading(): void {
+
+			// make sure to always update the message bus
+			MessageBus.update(0);
+
+			// bitmap fonts are 'system level' and need to be running for the engine to operate
+			if (!BitmapFontManager.updateReady()) {
+				requestAnimationFrame(this.preloading.bind(this));
+				return;
+			}
+
+			// load up our zone TODO: make this configurable
+			ZoneManager.changeZone(0);
+
+			// kick off the loop
+			this.loop();
 		}
 
 		private update(): void {
@@ -125,10 +151,6 @@ namespace TSE {
 
 			let projectionPosition = this._basicShader.getUniformLocation("u_projection");
 			gl.uniformMatrix4fv(projectionPosition, false, new Float32Array(this._projection.data));
-
-			// runs about 60 fps, originally designed for animations 
-			// .bind(this) is calling loop() for THIS instance of the engine
-			requestAnimationFrame(this.loop.bind(this));
 		}
 	}
 }
