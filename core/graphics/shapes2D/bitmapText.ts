@@ -66,8 +66,8 @@ namespace TSE {
 			this._buffer.addAttributeLocation(positionAttribute);
 
 			let texCoordAttribute = new AttributeInfo();
-			texCoordAttribute.location = 0;
-			texCoordAttribute.size = 3;
+			texCoordAttribute.location = 1;
+			texCoordAttribute.size = 2;
 			this._buffer.addAttributeLocation(texCoordAttribute);
 		}
 
@@ -129,35 +129,29 @@ namespace TSE {
 				let maxu = (g.x + g.width) / this._bitmapFont.imageWidth;
 				let maxv = (g.y + g.height) / this._bitmapFont.imageHeight;
 
-				// quad creation for the images of letters
-				/*this._vertices.push(new Vertex(minX, minY, 0, minu, minv));
-				this._vertices.push(new Vertex(minX, maxY, 0, minu, maxv));
-				this._vertices.push(new Vertex(maxX, maxY, 0, maxu, maxv));
-
-				this._vertices.push(new Vertex(maxX, maxY, 0, maxu, maxv));
-				this._vertices.push(new Vertex(maxX, minY, 0, maxu, minv));
-				this._vertices.push(new Vertex(minX, minY, 0, minu, minv));*/
-
-				minX = 0;
-				minY = 0;
-				maxX = 100;
-				maxY = 100;
 				minu = 0;
 				minv = 0;
-				maxu = 10;
-				maxu = 10;
+				maxu = 1;
+				maxv = 1;
 
+				// quad creation for the images of letters
 				this._vertices.push(new Vertex(minX, minY, 0, minu, minv));
 				this._vertices.push(new Vertex(minX, maxY, 0, minu, maxv));
 				this._vertices.push(new Vertex(maxX, maxY, 0, maxu, maxv));
 
+				this._vertices.push(new Vertex(maxX, maxY, 0, maxu, maxv));
 				this._vertices.push(new Vertex(maxX, minY, 0, maxu, minv));
-
-				
-				
 				this._vertices.push(new Vertex(minX, minY, 0, minu, minv));
 
-				this._vertices.push(new Vertex(maxX, maxY, 0, maxu, maxv));
+				// 5,3,4 texture coords
+
+				/*this._vertices.push(new Vertex(maxX, maxY, 0, minu, minv));
+				this._vertices.push(new Vertex(maxX, minY, 0, maxu, maxv));
+				this._vertices.push(new Vertex(minX, minY, 0, maxu, minv));
+
+				this._vertices.push(new Vertex(maxX, maxY, 0, minu, minv));
+				this._vertices.push(new Vertex(maxX, minY, 0, maxu, maxv));
+				this._vertices.push(new Vertex(minX, minY, 0, maxu, minv));*/
 
 				x += g.xAdvance;
 			}

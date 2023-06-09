@@ -1,4 +1,6 @@
-﻿namespace TSE {
+﻿/// <reference path="../math/vector2.ts" />
+
+namespace TSE {
 
 	/**
 	 * keys that exist outside of the Input Manager
@@ -34,8 +36,9 @@
 		private static _mouseY: number;
 		private static _leftDown: boolean = false;
 		private static _rightDown: boolean = false;
+		private static _resolutionScale: Vector2 = Vector2.zero;
 
-		public static initialize(): void {
+		public static initialize(viewport: HTMLCanvasElement): void {
 			// default all keys to false, no input
 			for (let i = 0; i < 255; ++i) {
 				InputManager._keys[i] = false;
@@ -43,9 +46,10 @@
 
 			window.addEventListener("keydown", InputManager.onKeyDown);
 			window.addEventListener("keyup", InputManager.onKeyUp);
-			window.addEventListener("mousemove", InputManager.onMouseMove);
-			window.addEventListener("mousedown", InputManager.onMouseDown);
-			window.addEventListener("mouseup", InputManager.onMouseUp);
+
+			viewport.addEventListener("mousemove", InputManager.onMouseMove);
+			viewport.addEventListener("mousedown", InputManager.onMouseDown);
+			viewport.addEventListener("mouseup", InputManager.onMouseUp);
 		}
 
 		public static isKeyDown(key: Keys): boolean {
@@ -55,6 +59,11 @@
 		public static getMousePosition(): Vector2 {
 			return new Vector2(InputManager._mouseX, InputManager._mouseY);
 		}
+
+		public static setResolutionScale(scale: Vector2): void {
+			InputManager._resolutionScale.copyFrom(scale);
+		}
+
 		/**
 		 * Capture our key events
 		 */
@@ -84,8 +93,10 @@
 		private static onMouseMove(event: MouseEvent): void {
 			InputManager._previousMouseX = InputManager._mouseX;
 			InputManager._previousMouseY = InputManager._mouseY;
-			InputManager._mouseX = event.clientX;
-			InputManager._mouseY = event.clientY;
+
+			let rect = (event.target as HTMLElement).getBoundingClientRect();
+			InputManager._mouseX = (event.clientX - Math.round(rect.left)) * (1 / InputManager._resolutionScale.x);
+			InputManager._mouseY = (event.clientY - Math.round(rect.top)) * (1 / InputManager._resolutionScale.y);
 		}
 
 		/**

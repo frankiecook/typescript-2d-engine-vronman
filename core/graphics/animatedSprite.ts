@@ -15,6 +15,18 @@ namespace TSE {
 		}
 	}
 
+	export class AnimatedSpriteInfo {
+		public name: string;
+		public materialName: string;
+		public width: number = 100;
+		public height: number = 100;
+		public frameWidth: number = 10;
+		public frameHeight: number = 10;
+		public frameCount: number = 1;
+		public frameSequence: number[] = [];
+		public frameTime: number = 60;
+	}
+
 	/**
 	 * Represents a 2-dimensional animated sprite
 	 * @_frameHeight height of frame in sprite sheet
@@ -35,21 +47,22 @@ namespace TSE {
 
 		private _currentFrame: number = 0;
 		private _frameUVs: UVInfo[] = [];
-		// TODO: make configurable
-		private _frameTime: number = 333;
+
+		private _frameTime: number = 33;
 		private _currentTime: number = 0;
 		private _assetLoaded: boolean = false;
 		private _assetWidth: number=2;
 		private _assetHeight: number = 2;
 		private _isPlaying: boolean = true;
 
-		public constructor(name: string, materialName: string, width: number = 50, height: number = 50, frameWidth: number=10, frameHeight: number=10, frameCount: number=1, frameSequence: number[]=[]) {
-			super(name, materialName, width, height);
+		public constructor(info: AnimatedSpriteInfo) {
+			super(info.name, info.materialName, info.width, info.height);
 
-			this._frameHeight = frameHeight;
-			this._frameWidth = frameWidth;
-			this._frameCount = frameCount;
-			this._frameSequence = frameSequence;
+			this._frameHeight = info.frameHeight;
+			this._frameWidth = info.frameWidth;
+			this._frameCount = info.frameCount;
+			this._frameSequence = info.frameSequence;
+			this._frameTime = info.frameTime;
 
 			// message subscription is for calculating UVs
 			Message.subscribe(MESSAGE_ASSET_LOADER_ASSET_LOADED + this._material.diffuseTextureName, this);

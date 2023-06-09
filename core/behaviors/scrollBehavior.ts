@@ -5,6 +5,8 @@
 		public velocity: Vector2 = Vector2.zero;
 		public minPosition: Vector2 = Vector2.zero;
 		public resetPosition: Vector2 = Vector2.zero;
+		public minResetY: number;
+		public maxResetY: number;
 		public startMessage: string;
 		public stopMessage: string;
 		public resetMessage: string;
@@ -45,6 +47,26 @@
 			} else {
 				throw new Error("ScrollBehaviorData requires property 'resetPosition' to be defined!");
 			}
+
+			if (json.minResetY !== undefined) {
+				//console.log("MIN WORKED");
+				//console.log(this.name);
+				this.minResetY = Number(json.minResetY);
+			} else {
+				//console.log("MIN error");
+				//console.log(this.name);
+				//throw new Error("ScrollBehaviorData requires property 'minResetY' to be defined!");
+			}
+
+			if (json.maxResetY !== undefined) {
+				//console.log("MAX WORKED");
+				//console.log(this.name);
+				this.maxResetY = Number(json.maxResetY);
+			} else {
+				//console.log("MAX error");
+				//console.log(this.name);
+				//throw new Error("ScrollBehaviorData requires property 'maxResetY' to be defined!");
+			}
 		}
 	}
 
@@ -68,6 +90,8 @@
 		private _startMessage: string;
 		private _stopMessage: string;
 		private _resetMessage: string;
+		private _minResetY: number;
+		private _maxResetY: number;
 		private _isScrolling: boolean = false;
 		private _initialPosition: Vector2 = Vector2.zero;
 
@@ -80,6 +104,14 @@
 			this._startMessage = data.startMessage;
 			this._stopMessage = data.stopMessage;
 			this._resetMessage = data.resetMessage;
+
+			if (data.minResetY !== undefined) {
+				this._minResetY = data.minResetY;
+			}
+
+			if (data.maxResetY !== undefined) {
+				this._maxResetY = data.maxResetY;
+			}
 		}
 
 		public updateReady(): void {
@@ -104,11 +136,13 @@
 
 		public update(time: number): void {
 			if (this._isScrolling) {
+
 				// scale time to be in seconds
 				this._owner.transform.position.add(this._velocity.clone().scale(time / 1000).toVector3());
 
+				let scrollY = this._minResetY !== undefined && this._maxResetY !== undefined;
 				if (this._owner.transform.position.x <= this._minPosition.x &&
-					this._owner.transform.position.y <= this._minPosition.y) {
+					(scrollY || (!scrollY && this._owner.transform.position.y <= this._minPosition.y))) {
 					this.reset();
 				}
 			}
@@ -125,11 +159,20 @@
 		}
 
 		private reset(): void {
-			this._owner.transform.position.copyFrom(this._resetPosition.toVector3());
+			if (this._minResetY !== undefined && this._maxResetY !== undefined) {
+				this._owner.transform.position.set(this._resetPosition.x, this.getRandomY());
+			} else {
+				this._owner.transform.position.copyFrom(this._resetPosition.toVector3());
+			}
+		}
+
+		private getRandomY(): number {
+			// includsive of the values
+			return Math.floor(Math.random() * (this._maxResetY - this._minResetY + 1)) + this._minResetY;
 		}
 
 		private initial(): void {
-			this._owner.transform.position.copyFrom(this._resetPosition.toVector3());
+			this._owner.transform.position.copyFrom(this._initialPosition.toVector3());
 		}
 	}
 

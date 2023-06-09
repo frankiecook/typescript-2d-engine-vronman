@@ -11,6 +11,13 @@
 
 		public height: number;
 
+		public constructor(x: number = 0, y: number = 0, width: number = 0, height: number = 0) {
+			this.position.x = x;
+			this.position.y = y;
+			this.width = width;
+			this.height = height;
+		}
+
 		/**
 		 * provide offset value
 		 */
@@ -42,12 +49,10 @@
 		public intersect(other: IShape2D): boolean {
 			// case when other shape is rectangle
 			if (other instanceof Rectangle2D) {
+				let a = this.getExtents(this);
+				let b = this.getExtents(other);
 
-				// check if any of the four corners of the bounding rectangle intersect
-				return (this.pointInShape(other.position) ||
-					this.pointInShape(new Vector2(other.position.x + other.width, other.position.y)) ||
-					this.pointInShape(new Vector2(other.position.x + other.width, other.position.y + other.height)) ||
-					this.pointInShape(new Vector2(other.position.x, other.position.y + other.height)))
+				return (a.position.x <= b.width && a.width >= b.position.x) && (a.position.y <= b.height && a.height >= b.position.y);
 			}
 
 			if (other instanceof Circle2D) {
@@ -76,6 +81,16 @@
 				
 			// if shape is unknown then don't intersect
 			return false;
+		}
+
+		private getExtents(shape: Rectangle2D): Rectangle2D {
+			let x = shape.width < 0 ? shape.position.x - shape.width : shape.position.x;
+			let y = shape.height < 0 ? shape.position.y - shape.height : shape.position.y;
+
+			let extentX = shape.width < 0 ? shape.position.x : shape.position.x + shape.width;
+			let extentY = shape.height < 0 ? shape.position.y : shape.position.y + shape.height;
+
+			return new Rectangle2D(x, y, extentX, extentY);
 		}
 	}
 }

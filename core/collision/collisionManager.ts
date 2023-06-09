@@ -91,9 +91,8 @@
 							comp.onCollisionEntry(other);
 							other.onCollisionEntry(comp);
 							// two messages to whoever is listening to this collision
-							Message.sendPriority("COLLISION_ENTRY:" + comp.name, this, col);
-							Message.sendPriority("COLLISION_ENTRY:" + other.name, this, col);
-							this._collisionData.push(col);
+							Message.sendPriority("COLLISION_ENTRY", undefined, col);
+							CollisionManager._collisionData.push(col);
 						}
 					}
 				}
@@ -121,8 +120,7 @@
 
 				data.a.onCollisionExit(data.b);
 				data.a.onCollisionExit(data.a);
-				Message.sendPriority("COLLISION_EXIT:" + data.a.name, this, data);
-				Message.sendPriority("COLLISION_EXIT:" + data.b.name, this, data);
+				Message.sendPriority("COLLISION_EXIT", undefined, data);
 			}
 		}
 	}

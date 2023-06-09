@@ -1,4 +1,7 @@
-﻿namespace TSE {
+﻿/// <reference path="../assets/imageassetloader.ts" />
+/// <reference path="../engine.ts" />
+
+namespace TSE {
 
 	class FontUtilities {
 
@@ -83,6 +86,9 @@
 		public load(): void {
 			// get the asset
 			let asset = AssetManager.getAsset(this._fontFileName);
+			console.log("LOAD IN THE ASSET~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+			console.log(this._fontFileName);
+
 			// if asset isn't loaded
 			if (asset !== undefined) {
 				this.processFontFile(asset.data);
@@ -141,8 +147,9 @@
 		 * Lines have a type
 		 */
 		private processFontFile(content: string): void {
-
 			let charCount: number = 0;
+			console.log("PROCESS FONT FILE~~~~~~~~~~~~~~~~~~");
+			console.log(content);
 			let lines: string[] = content.split("\n");
 			for (let line of lines) {
 

@@ -13,6 +13,9 @@ namespace TSE {
 		private _gameWidth: number;
 		private _gameHeight: number;
 
+		private _isFirstUpdate: boolean = true;
+		private _aspect: number;
+
 
 		// typescript has three levels of scope (public, private, protected)
 		// width of game in pixels
@@ -22,22 +25,19 @@ namespace TSE {
 			this._gameHeight = height;
 		}
 
-		public start(): void {
+		public start(elementName?: string): void {
 
-			this._canvas = GLUtilities.initialize();
+			this._canvas = GLUtilities.initialize(elementName);
 
 			// set width and height if exists
 			if (this._gameWidth !== undefined && this._gameHeight !== undefined) {
 				// px for CSS property
-				this._canvas.style.width = this._gameWidth + "px";
-				this._canvas.style.height = this._gameHeight + "px";
-				this._canvas.width = this._gameWidth;
-				this._canvas.height = this._gameHeight;
+				this._aspect = this._gameWidth / this._gameHeight;
 			}
 
 			// initialize assets and zones
 			AssetManager.initialize();
-			InputManager.initialize();
+			InputManager.initialize(this._canvas);
 			ZoneManager.initialize();
 
 			// what color the webgl will be cleared to for every frame
@@ -53,6 +53,7 @@ namespace TSE {
 			// load fonts
 			BitmapFontManager.addFont("default", "assets/fonts/text.txt");
 			BitmapFontManager.load();
+			MaterialManager.registerMaterial(new Material("text", "assets/fonts/text.png", Color.white()));
 
 			// load materials
 			MaterialManager.registerMaterial(new Material("leaves", "assets/textures/dk64-leaves.png", Color.white()));
@@ -61,6 +62,12 @@ namespace TSE {
 			MaterialManager.registerMaterial(new Material("bg", "assets/textures/bg.png", Color.white()));
 			MaterialManager.registerMaterial(new Material("end", "assets/textures/end.png", Color.white()));
 			MaterialManager.registerMaterial(new Material("middle", "assets/textures/middle.png", Color.white()));
+			// 19:21
+			MaterialManager.registerMaterial(new Material("playbtn", "assets/textures/playbtn.png", Color.white()));
+			MaterialManager.registerMaterial(new Material("restartbtn", "assets/textures/restartbtn.png", Color.white()));
+			MaterialManager.registerMaterial(new Material("score", "assets/textures/score.png", Color.white()));
+			MaterialManager.registerMaterial(new Material("title", "assets/textures/title.png", Color.white()));
+			MaterialManager.registerMaterial(new Material("tutorial", "assets/textures/tutorial.png", Color.white()));
 
 			AudioManager.loadSoundFile("flap", "assets/sounds/flap.mp3", false);
 			AudioManager.loadSoundFile("ting", "assets/sounds/ting.mp3", false);
@@ -84,14 +91,44 @@ namespace TSE {
 				if (this._gameWidth === undefined || this._gameHeight === undefined) {
 					this._canvas.width = window.innerWidth;
 					this._canvas.height = window.innerHeight;
+					// change viewport to size of the window
+					gl.viewport(0, 0, window.innerWidth, window.innerHeight);
+					// not using an aspect ratio
+					this._projection = Matrix4x4.orthographic(0, window.innerWidth, window.innerHeight, 0, -100.0, 100.0);
+				} else {
+					let newWidth = window.innerWidth;
+					let newHeight = window.innerHeight;
+					let newWidthToHeight = newWidth / newHeight;
+					let gameArea = document.getElementById("gameArea");
+
+					// grabs the new size and associated aspect ratio
+					// calculates how big to resize the game area
+					// sets gameArea style to appropriate width and height
+					if (newWidthToHeight > this._aspect) {
+						newWidth = newHeight * this._aspect;
+						gameArea.style.height = newHeight + 'px';
+						gameArea.style.width = newWidth + 'px';
+					} else {
+						newHeight = newWidth / this._aspect;
+						gameArea.style.width = newWidth + 'px';
+						gameArea.style.height = newHeight + 'px';
+					}
+		
+					gameArea.style.marginTop = (-newHeight / 2) + 'px';
+					gameArea.style.marginLeft = (-newWidth / 2) + 'px';
+
+					// set size of the canvas
+					this._canvas.width = newWidth;
+					this._canvas.height = newHeight;
+
+					// regenerate projection matrix
+					gl.viewport(0, 0, newWidth, newHeight);
+					this._projection = Matrix4x4.orthographic(0, this._gameWidth, this._gameHeight, 0, -100.0, 100.0);
+
+					// resolution scale is used by input manager
+					let resolutionScale = new Vector2(newWidth / this._gameWidth, newHeight / this._gameHeight);
+					InputManager.setResolutionScale(resolutionScale);
 				}
-
-				// tells webgl to use the full range of the viewport
-				gl.viewport(0, 0, this._canvas.width, this._canvas.height);
-
-				// give webgl a reference for the maximum area of the screen
-				gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-				this._projection = Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
 			}
 		}
 
@@ -103,6 +140,11 @@ namespace TSE {
 		}
 
 		private loop(): void {
+			// check for first update
+			if (this._isFirstUpdate) {
+
+			}
+
 			this.update();
 			this.render();
 

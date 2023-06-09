@@ -11,6 +11,7 @@ namespace TSE {
 		public frameCount: number;
 		public frameSequence: number[] = [];
 		public autoPlay: boolean = true;
+		public frameTime: number = 33;
 
 		// require all above properties to be present
 		public setFromJson(json: any): void {
@@ -44,6 +45,12 @@ namespace TSE {
 			} else {
 				this.frameSequence = json.frameSequence;
 			}
+
+			if (json.frameTime === undefined) {
+				throw new Error("AnimatedSpriteComponentData requires 'frameTime' to be defined.");
+			} else {
+				this.frameTime = Number(json.frameTime);
+			}
 		}
 	}
 
@@ -66,14 +73,26 @@ namespace TSE {
 
 	export class AnimatedSpriteComponent extends BaseComponent {
 
-		private _autoPlay: boolean = true;
+		private _autoPlay: boolean;
 		private _sprite: AnimatedSprite;
 
 		public constructor(data: AnimatedSpriteComponenetData) {
 			super(data);
 
 			this._autoPlay = data.autoPlay;
-			this._sprite = new AnimatedSprite(name, data.materialName, data.frameWidth, data.frameHeight, data.frameWidth, data.frameHeight, data.frameCount, data.frameSequence);
+
+			let spriteInfo = new AnimatedSpriteInfo();
+			spriteInfo.name = name;
+			spriteInfo.materialName = data.materialName;
+			spriteInfo.width = data.width;
+			spriteInfo.height = data.height;
+			spriteInfo.frameWidth = data.frameWidth;
+			spriteInfo.frameHeight = data.frameHeight;
+			spriteInfo.frameCount = data.frameCount;
+			spriteInfo.frameSequence = data.frameSequence;
+			spriteInfo.frameTime = data.frameTime;
+
+			this._sprite = new AnimatedSprite(spriteInfo);
 			// only run code if origin is default values
 			if (!data.origin.equals(Vector3.zero)) {
 				this._sprite.origin.copyFrom(data.origin);

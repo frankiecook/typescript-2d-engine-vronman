@@ -9,6 +9,7 @@
 		private _scene: Scene;
 		private _components: IComponent[] = [];
 		private _behaviors: IBehavior[] = [];
+		private _isVisible: boolean = true;
 
 		private _localMatrix: Matrix4x4 = Matrix4x4.identity();
 		private _worldMatrix: Matrix4x4 = Matrix4x4.identity();
@@ -38,6 +39,14 @@
 
 		public get isLoaded(): boolean {
 			return this._isLoaded;
+		}
+
+		public get isVisible(): boolean {
+			return this._isVisible;
+		}
+
+		public set isVisible(value: boolean) {
+			this._isVisible = value;
 		}
 
 		public addChild(child: SimObject): void {
@@ -183,6 +192,11 @@
 		 * recursivley update children
 		 */
 		public render(shader: Shader): void {
+			// check visibility 
+			if (!this._isVisible) {
+				return;
+			}
+
 			for (let c of this._components) {
 				c.render(shader);
 			}

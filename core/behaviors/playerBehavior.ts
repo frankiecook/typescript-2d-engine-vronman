@@ -9,6 +9,7 @@ namespace TSE {
 		public playerCollisionComponent: string;
 		public groundCollisionComponent: string;
 		public animatedSpriteName: string;
+		public scoreCollisionComponent: string;
 
 		/* load information from json */
 		public setFromJson(json: any): void {
@@ -39,6 +40,12 @@ namespace TSE {
 			} else {
 				this.groundCollisionComponent = String(json.groundCollisionComponent);
 			}
+
+			if (json.scoreCollisionComponent === undefined) {
+				throw new Error("scoreCollisionComponent must be defined in behavior data.");
+			} else {
+				this.scoreCollisionComponent = String(json.scoreCollisionComponent);
+			}
 		}
 	}
 
@@ -63,12 +70,17 @@ namespace TSE {
 		private _isAlive: boolean = true;
 		private _playerCollisionComponent: string;
 		private _groundCollisionComponent: string;
+		private _scoreCollisionComponent: string;
 		private _animatedSpriteName: string;
 		private _isPlaying: boolean = false;
 		private _initialPosition: Vector3 = Vector3.zero;
+		private _score: number = 0;
+		private _highScore: number = 0;
 
 		private _sprite: AnimatedSpriteComponent;
-		private _pipeNames: string[] = ["pip1Collision_end", "pip1Collision_middle_top", "pip1Collision_middle_bottom"];
+		private _pipeNames: string[] = ["pipe1Collision_end", "pipe1Collision_middle_top", "pipe1Collision_endneg", "pipe1Collision_middle_bottom",
+			"pipe2Collision_end", "pipe2Collision_middle_top", "pipe2Collision_endneg", "pipe2Collision_middle_bottom",
+			"pipe3Collision_end", "pipe3Collision_middle_top", "pipe3Collision_endneg", "pipe3Collision_middle_bottom"];
 
 		public constructor(data: PlayerBehaviorData) {
 			super(data);
@@ -76,13 +88,17 @@ namespace TSE {
 			this._acceleration = data.acceleration;
 			this._playerCollisionComponent = data.playerCollisionComponent;
 			this._groundCollisionComponent = data.groundCollisionComponent;
+			this._scoreCollisionComponent = data.scoreCollisionComponent;
 			this._animatedSpriteName = data.animatedSpriteName;
 
 			Message.subscribe("MOUSE_DOWN", this);
-			Message.subscribe("COLLISION_ENTRY:" + this._playerCollisionComponent, this);
+			Message.subscribe("COLLISION_ENTRY", this);
 
+			Message.subscribe("GAME_READY", this);
 			Message.subscribe("GAME_RESET", this);
 			Message.subscribe("GAME_START", this);
+
+			Message.subscribe("PLAYER_DIED", this);
 		}
 
 		public updateReady(): void {
@@ -156,23 +172,56 @@ namespace TSE {
 				case "MOUSE_DOWN":
 					this.onFlap();
 					break;
-				case "COLLISION_ENTRY": + this._playerCollisionComponent;
+				case "COLLISION_ENTRY":
 					let data: CollisionData = message.context as CollisionData;
 					// check if collision is with the ground
+					if (data.a.name !== this._playerCollisionComponent && data.b.name !== this._playerCollisionComponent) {
+						return;
+					}
 					if (data.a.name === this._groundCollisionComponent || data.b.name == this._groundCollisionComponent) {
 						this.die();
 						this.decelerate();
-					}
-					// check that pipe exists
-					if (this._pipeNames.indexOf(data.a.name) !== -1 || this._pipeNames.indexOf(data.b.name) !== -1) {
+					} else if (this._pipeNames.indexOf(data.a.name) !== -1 || this._pipeNames.indexOf(data.b.name) !== -1) {
 						this.die();
+					} else if (data.a.name === this._scoreCollisionComponent || data.b.name === this._scoreCollisionComponent) {
+						if (this._isAlive && this._isPlaying) {
+							this.setScore(this._score + 1);
+							AudioManager.playSound("ting");
+						}
 					}
 					break;
+
+				// shows the tutorial, click to GAME_START
 				case "GAME_RESET":
+					Message.send("GAME_HIDE", this);
+					Message.send("RESET_HIDE", this);
+					Message.send("SPLASH_HIDE", this);
+					Message.send("TUTORIAL_SHOW", this);
 					this.reset();
 					break;
+
+				// starts the main game
 				case "GAME_START":
+					Message.send("GAME_SHOW", this);
+					Message.send("RESET_HIDE", this);
+					Message.send("SPLASH_HIDE", this);
+					Message.send("TUTORIAL_HIDE", this);
+					this._isPlaying = true;
+					this._isAlive = true;
 					this.start();
+					break;
+
+				// level is loaded, show play button/splash screen
+				case "GAME_READY":
+					Message.send("RESET_HIDE", this);
+					Message.send("TUTORIAL_HIDE", this);
+					Message.send("GAME_HIDE", this);
+					Message.send("SPLASH_SHOW", this);
+					break;
+
+				// show score and restart button
+				case "PLAYER_DIED":
+					Message.send("RESET_SHOW", this);
 					break;
 			}
 		}
@@ -183,7 +232,7 @@ namespace TSE {
 		}
 
 		private shouldNotFlap(): boolean {
-			return this._isPlaying || this._velocity.y > 220.0 || !this._isAlive;
+			return !this._isPlaying || this._velocity.y > 220.0 || !this._isAlive;
 		}
 
 		private die(): void {
@@ -200,6 +249,7 @@ namespace TSE {
 			this._isPlaying = false;
 			this._sprite.owner.transform.position.copyFrom(this._initialPosition);
 			this._sprite.owner.transform.rotation.z = 0;
+			this.setScore(0);
 
 			this._velocity.set(0, 0);
 			this._acceleration.set(0, 920);
@@ -223,13 +273,15 @@ namespace TSE {
 			}
 		}
 
-		private onRestart(y: number): void {
-			this._owner.transform.rotation.z = 0;
-			this._owner.transform.position.set(33, y);
-			this._velocity.set(0, 0);
-			this._acceleration.set(0, 920);
-			this._isAlive = true;
-			this._sprite.play();
+		private setScore(score: number): void {
+			this._score = score;
+			Message.send("counterText:SetText", this, this._score);
+			Message.send("scoreText:SetText", this, this._score);
+
+			if (this._score > this._highScore) {
+				this._highScore = this._score;
+				Message.send("bestText:SetText", this, this._highScore);
+			}
 		}
 	}
 

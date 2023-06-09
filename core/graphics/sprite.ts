@@ -20,11 +20,6 @@
 			this._height = height;
 			this._materialName = materialName;
 			this._material = MaterialManager.getMaterial(this._materialName);
-
-
-			if (name === "grass") {
-				console.log("GROUND SPRITE");
-			}
 		}
 
 		public get name(): string {
@@ -80,7 +75,6 @@
 		}
 
 		// draw method of sprite changes to use a model instead of a position variable
-		//
 		public draw(shader: Shader, model: Matrix4x4): void {
 
 			// take in a model matrix

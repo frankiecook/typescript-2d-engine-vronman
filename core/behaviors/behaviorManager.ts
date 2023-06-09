@@ -15,8 +15,9 @@
 				if (BehaviorManager._registeredBuilders[String(json.type)] !== undefined) {
 					return BehaviorManager._registeredBuilders[String(json.type)].buildFromJson(json);
 				}
-
-				throw new Error("COMponent mamanger error - type is missing or builder is not registered for this type.")
+				console.log(json.name);
+				console.log(json.type);
+				throw new Error("Component mananger error - type is missing or builder is not registered for this type.")
 			}
 		}
 	}

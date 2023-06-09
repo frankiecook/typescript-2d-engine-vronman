@@ -103,6 +103,10 @@
 			ZoneManager._activeZone.initialize(zoneData);
 			ZoneManager._activeZone.onActivated();
 			ZoneManager._activeZone.load();
+
+			// Game is ready
+			// Change state to splash
+			Message.send("GAME_READY", this);
 		}
 	}
 }

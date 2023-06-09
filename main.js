@@ -15,7 +15,7 @@ var engine;
 // the main entry piont to the program
 window.onload = function () {
     engine = new TSE.Engine(320, 480);
-    engine.start();
+    engine.start("viewport");
 };
 window.onresize = function () {
     engine.resize();
@@ -63,6 +63,8 @@ var TSE;
         };
         // if asset exists return asset, if not then load it and return undefined
         AssetManager.getAsset = function (assetName) {
+            console.log("ASSET MANAGER~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+            console.log(AssetManager._loadedAssets);
             if (AssetManager._loadedAssets[assetName] !== undefined) {
                 return AssetManager._loadedAssets[assetName];
             }
@@ -328,7 +330,9 @@ var TSE;
                 if (BehaviorManager._registeredBuilders[String(json.type)] !== undefined) {
                     return BehaviorManager._registeredBuilders[String(json.type)].buildFromJson(json);
                 }
-                throw new Error("COMponent mamanger error - type is missing or builder is not registered for this type.");
+                console.log(json.name);
+                console.log(json.type);
+                throw new Error("Component mananger error - type is missing or builder is not registered for this type.");
             }
         };
         BehaviorManager._registeredBuilders = {};
@@ -405,6 +409,88 @@ var TSE;
     // auto register
     TSE.BehaviorManager.registerBuilder(new KeyboardMovementBehaviorBuilder());
 })(TSE || (TSE = {}));
+var TSE;
+(function (TSE) {
+    var MouseClickBehaviorData = /** @class */ (function () {
+        function MouseClickBehaviorData() {
+        }
+        MouseClickBehaviorData.prototype.setFromJson = function (json) {
+            if (json.name === undefined) {
+                throw new Error("Name must be defined n behavior data.");
+            }
+            this.name = String(json.name);
+            if (json.width === undefined) {
+                throw new Error("Width must be defined n behavior data.");
+            }
+            else {
+                this.width = Number(json.width);
+            }
+            if (json.height === undefined) {
+                throw new Error("height must be defined n behavior data.");
+            }
+            else {
+                this.height = Number(json.height);
+            }
+            if (json.messageCode === undefined) {
+                throw new Error("messageCode must be defined n behavior data.");
+            }
+            else {
+                this.messageCode = String(json.messageCode);
+            }
+        };
+        return MouseClickBehaviorData;
+    }());
+    TSE.MouseClickBehaviorData = MouseClickBehaviorData;
+    var MouseClickBehaviorBuilder = /** @class */ (function () {
+        function MouseClickBehaviorBuilder() {
+        }
+        Object.defineProperty(MouseClickBehaviorBuilder.prototype, "type", {
+            get: function () {
+                return "mouseClick";
+            },
+            enumerable: false,
+            configurable: true
+        });
+        MouseClickBehaviorBuilder.prototype.buildFromJson = function (json) {
+            var data = new MouseClickBehaviorData();
+            data.setFromJson(json);
+            return new MouseClickBehavior(data);
+        };
+        return MouseClickBehaviorBuilder;
+    }());
+    TSE.MouseClickBehaviorBuilder = MouseClickBehaviorBuilder;
+    var MouseClickBehavior = /** @class */ (function (_super) {
+        __extends(MouseClickBehavior, _super);
+        function MouseClickBehavior(data) {
+            var _this = _super.call(this, data) || this;
+            _this._width = data.width;
+            _this._height = data.height;
+            _this._messageCode = data.messageCode;
+            TSE.Message.subscribe("MOUSE_UP", _this);
+            return _this;
+        }
+        MouseClickBehavior.prototype.onMessage = function (message) {
+            if (message.code === "MOUSE_UP") {
+                if (!this._owner.isVisible) {
+                    return;
+                }
+                var context = message.context;
+                var worldPos = this._owner.getWorldPosition();
+                var extentsX = worldPos.x + this._width;
+                var extentsY = worldPos.y + this._height;
+                if (context.position.x >= worldPos.x && context.position.x <= extentsX &&
+                    context.position.y >= worldPos.y && context.position.y <= extentsY) {
+                    // send the configured message
+                    TSE.Message.send(this._messageCode, this);
+                }
+            }
+        };
+        return MouseClickBehavior;
+    }(TSE.BaseBehavior));
+    TSE.MouseClickBehavior = MouseClickBehavior;
+    // add behavior to manager
+    TSE.BehaviorManager.registerBuilder(new MouseClickBehaviorBuilder());
+})(TSE || (TSE = {}));
 /// <reference path="basebehavior.ts" />
 /// <reference path="behaviormanager.ts" />
 var TSE;
@@ -440,6 +526,12 @@ var TSE;
             else {
                 this.groundCollisionComponent = String(json.groundCollisionComponent);
             }
+            if (json.scoreCollisionComponent === undefined) {
+                throw new Error("scoreCollisionComponent must be defined in behavior data.");
+            }
+            else {
+                this.scoreCollisionComponent = String(json.scoreCollisionComponent);
+            }
         };
         return PlayerBehaviorData;
     }());
@@ -471,15 +563,22 @@ var TSE;
             _this._isAlive = true;
             _this._isPlaying = false;
             _this._initialPosition = TSE.Vector3.zero;
-            _this._pipeNames = ["pip1Collision_end", "pip1Collision_middle_top", "pip1Collision_middle_bottom"];
+            _this._score = 0;
+            _this._highScore = 0;
+            _this._pipeNames = ["pipe1Collision_end", "pipe1Collision_middle_top", "pipe1Collision_endneg", "pipe1Collision_middle_bottom",
+                "pipe2Collision_end", "pipe2Collision_middle_top", "pipe2Collision_endneg", "pipe2Collision_middle_bottom",
+                "pipe3Collision_end", "pipe3Collision_middle_top", "pipe3Collision_endneg", "pipe3Collision_middle_bottom"];
             _this._acceleration = data.acceleration;
             _this._playerCollisionComponent = data.playerCollisionComponent;
             _this._groundCollisionComponent = data.groundCollisionComponent;
+            _this._scoreCollisionComponent = data.scoreCollisionComponent;
             _this._animatedSpriteName = data.animatedSpriteName;
             TSE.Message.subscribe("MOUSE_DOWN", _this);
-            TSE.Message.subscribe("COLLISION_ENTRY:" + _this._playerCollisionComponent, _this);
+            TSE.Message.subscribe("COLLISION_ENTRY", _this);
+            TSE.Message.subscribe("GAME_READY", _this);
             TSE.Message.subscribe("GAME_RESET", _this);
             TSE.Message.subscribe("GAME_START", _this);
+            TSE.Message.subscribe("PLAYER_DIED", _this);
             return _this;
         }
         PlayerBehavior.prototype.updateReady = function () {
@@ -540,23 +639,53 @@ var TSE;
                     this.onFlap();
                     break;
                 case "COLLISION_ENTRY":
-                    +this._playerCollisionComponent;
                     var data = message.context;
                     // check if collision is with the ground
+                    if (data.a.name !== this._playerCollisionComponent && data.b.name !== this._playerCollisionComponent) {
+                        return;
+                    }
                     if (data.a.name === this._groundCollisionComponent || data.b.name == this._groundCollisionComponent) {
                         this.die();
                         this.decelerate();
                     }
-                    // check that pipe exists
-                    if (this._pipeNames.indexOf(data.a.name) !== -1 || this._pipeNames.indexOf(data.b.name) !== -1) {
+                    else if (this._pipeNames.indexOf(data.a.name) !== -1 || this._pipeNames.indexOf(data.b.name) !== -1) {
                         this.die();
                     }
+                    else if (data.a.name === this._scoreCollisionComponent || data.b.name === this._scoreCollisionComponent) {
+                        if (this._isAlive && this._isPlaying) {
+                            this.setScore(this._score + 1);
+                            TSE.AudioManager.playSound("ting");
+                        }
+                    }
                     break;
+                // shows the tutorial, click to GAME_START
                 case "GAME_RESET":
+                    TSE.Message.send("GAME_HIDE", this);
+                    TSE.Message.send("RESET_HIDE", this);
+                    TSE.Message.send("SPLASH_HIDE", this);
+                    TSE.Message.send("TUTORIAL_SHOW", this);
                     this.reset();
                     break;
+                // starts the main game
                 case "GAME_START":
+                    TSE.Message.send("GAME_SHOW", this);
+                    TSE.Message.send("RESET_HIDE", this);
+                    TSE.Message.send("SPLASH_HIDE", this);
+                    TSE.Message.send("TUTORIAL_HIDE", this);
+                    this._isPlaying = true;
+                    this._isAlive = true;
                     this.start();
+                    break;
+                // level is loaded, show play button/splash screen
+                case "GAME_READY":
+                    TSE.Message.send("RESET_HIDE", this);
+                    TSE.Message.send("TUTORIAL_HIDE", this);
+                    TSE.Message.send("GAME_HIDE", this);
+                    TSE.Message.send("SPLASH_SHOW", this);
+                    break;
+                // show score and restart button
+                case "PLAYER_DIED":
+                    TSE.Message.send("RESET_SHOW", this);
                     break;
             }
         };
@@ -565,7 +694,7 @@ var TSE;
             return this._velocity.y > 220.0;
         };
         PlayerBehavior.prototype.shouldNotFlap = function () {
-            return this._isPlaying || this._velocity.y > 220.0 || !this._isAlive;
+            return !this._isPlaying || this._velocity.y > 220.0 || !this._isAlive;
         };
         PlayerBehavior.prototype.die = function () {
             // send only once
@@ -580,6 +709,7 @@ var TSE;
             this._isPlaying = false;
             this._sprite.owner.transform.position.copyFrom(this._initialPosition);
             this._sprite.owner.transform.rotation.z = 0;
+            this.setScore(0);
             this._velocity.set(0, 0);
             this._acceleration.set(0, 920);
             this._sprite.play();
@@ -598,13 +728,14 @@ var TSE;
                 TSE.AudioManager.playSound("flap");
             }
         };
-        PlayerBehavior.prototype.onRestart = function (y) {
-            this._owner.transform.rotation.z = 0;
-            this._owner.transform.position.set(33, y);
-            this._velocity.set(0, 0);
-            this._acceleration.set(0, 920);
-            this._isAlive = true;
-            this._sprite.play();
+        PlayerBehavior.prototype.setScore = function (score) {
+            this._score = score;
+            TSE.Message.send("counterText:SetText", this, this._score);
+            TSE.Message.send("scoreText:SetText", this, this._score);
+            if (this._score > this._highScore) {
+                this._highScore = this._score;
+                TSE.Message.send("bestText:SetText", this, this._highScore);
+            }
         };
         return PlayerBehavior;
     }(TSE.BaseBehavior));
@@ -711,6 +842,26 @@ var TSE;
             else {
                 throw new Error("ScrollBehaviorData requires property 'resetPosition' to be defined!");
             }
+            if (json.minResetY !== undefined) {
+                //console.log("MIN WORKED");
+                //console.log(this.name);
+                this.minResetY = Number(json.minResetY);
+            }
+            else {
+                //console.log("MIN error");
+                //console.log(this.name);
+                //throw new Error("ScrollBehaviorData requires property 'minResetY' to be defined!");
+            }
+            if (json.maxResetY !== undefined) {
+                //console.log("MAX WORKED");
+                //console.log(this.name);
+                this.maxResetY = Number(json.maxResetY);
+            }
+            else {
+                //console.log("MAX error");
+                //console.log(this.name);
+                //throw new Error("ScrollBehaviorData requires property 'maxResetY' to be defined!");
+            }
         };
         return ScrollBehaviorData;
     }());
@@ -748,6 +899,12 @@ var TSE;
             _this._startMessage = data.startMessage;
             _this._stopMessage = data.stopMessage;
             _this._resetMessage = data.resetMessage;
+            if (data.minResetY !== undefined) {
+                _this._minResetY = data.minResetY;
+            }
+            if (data.maxResetY !== undefined) {
+                _this._maxResetY = data.maxResetY;
+            }
             return _this;
         }
         ScrollBehavior.prototype.updateReady = function () {
@@ -769,8 +926,9 @@ var TSE;
             if (this._isScrolling) {
                 // scale time to be in seconds
                 this._owner.transform.position.add(this._velocity.clone().scale(time / 1000).toVector3());
+                var scrollY_1 = this._minResetY !== undefined && this._maxResetY !== undefined;
                 if (this._owner.transform.position.x <= this._minPosition.x &&
-                    this._owner.transform.position.y <= this._minPosition.y) {
+                    (scrollY_1 || (!scrollY_1 && this._owner.transform.position.y <= this._minPosition.y))) {
                     this.reset();
                 }
             }
@@ -787,16 +945,90 @@ var TSE;
             }
         };
         ScrollBehavior.prototype.reset = function () {
-            this._owner.transform.position.copyFrom(this._resetPosition.toVector3());
+            if (this._minResetY !== undefined && this._maxResetY !== undefined) {
+                this._owner.transform.position.set(this._resetPosition.x, this.getRandomY());
+            }
+            else {
+                this._owner.transform.position.copyFrom(this._resetPosition.toVector3());
+            }
+        };
+        ScrollBehavior.prototype.getRandomY = function () {
+            // includsive of the values
+            return Math.floor(Math.random() * (this._maxResetY - this._minResetY + 1)) + this._minResetY;
         };
         ScrollBehavior.prototype.initial = function () {
-            this._owner.transform.position.copyFrom(this._resetPosition.toVector3());
+            this._owner.transform.position.copyFrom(this._initialPosition.toVector3());
         };
         return ScrollBehavior;
     }(TSE.BaseBehavior));
     TSE.ScrollBehavior = ScrollBehavior;
     // add behavior to manager
     TSE.BehaviorManager.registerBuilder(new ScrollBehaviorBuilder());
+})(TSE || (TSE = {}));
+/** toggles visibility of an object when message is recieved */
+var TSE;
+(function (TSE) {
+    /** data */
+    var VisibilityOnMessageBehaviorData = /** @class */ (function () {
+        function VisibilityOnMessageBehaviorData() {
+        }
+        VisibilityOnMessageBehaviorData.prototype.setFromJson = function (json) {
+            // set message code
+            if (json.messageCode === undefined) {
+                throw new Error("VisibilityOnMessageBehaviorData requires 'messageCode' to be defined.");
+            }
+            else {
+                this.messageCode = String(json.messageCode);
+            }
+            // set visibility
+            if (json.visible === undefined) {
+                throw new Error("VisibilityOnMessageBehaviorData requires 'visible' to be defined.");
+            }
+            else {
+                this.visible = Boolean(json.visible);
+            }
+        };
+        return VisibilityOnMessageBehaviorData;
+    }());
+    TSE.VisibilityOnMessageBehaviorData = VisibilityOnMessageBehaviorData;
+    var VisibilityOnMessageBehaviorBuilder = /** @class */ (function () {
+        function VisibilityOnMessageBehaviorBuilder() {
+        }
+        Object.defineProperty(VisibilityOnMessageBehaviorBuilder.prototype, "type", {
+            get: function () {
+                return "visibilityOnMessage";
+            },
+            enumerable: false,
+            configurable: true
+        });
+        VisibilityOnMessageBehaviorBuilder.prototype.buildFromJson = function (json) {
+            var data = new VisibilityOnMessageBehaviorData();
+            data.setFromJson(json);
+            return new VisibilityOnMessageBehavior(data);
+        };
+        return VisibilityOnMessageBehaviorBuilder;
+    }());
+    TSE.VisibilityOnMessageBehaviorBuilder = VisibilityOnMessageBehaviorBuilder;
+    var VisibilityOnMessageBehavior = /** @class */ (function (_super) {
+        __extends(VisibilityOnMessageBehavior, _super);
+        // subscribes to the message in the data
+        function VisibilityOnMessageBehavior(data) {
+            var _this = _super.call(this, data) || this;
+            _this._messageCode = data.messageCode;
+            _this._visible = data.visible;
+            TSE.Message.subscribe(_this._messageCode, _this);
+            return _this;
+        }
+        // when message is received, then set visibility
+        VisibilityOnMessageBehavior.prototype.onMessage = function (message) {
+            if (message.code === this._messageCode) {
+                this._owner.isVisible = this._visible;
+            }
+        };
+        return VisibilityOnMessageBehavior;
+    }(TSE.BaseBehavior));
+    TSE.VisibilityOnMessageBehavior = VisibilityOnMessageBehavior;
+    TSE.BehaviorManager.registerBuilder(new VisibilityOnMessageBehaviorBuilder());
 })(TSE || (TSE = {}));
 var TSE;
 (function (TSE) {
@@ -868,9 +1100,8 @@ var TSE;
                             comp.onCollisionEntry(other);
                             other.onCollisionEntry(comp);
                             // two messages to whoever is listening to this collision
-                            TSE.Message.sendPriority("COLLISION_ENTRY:" + comp.name, this, col);
-                            TSE.Message.sendPriority("COLLISION_ENTRY:" + other.name, this, col);
-                            this._collisionData.push(col);
+                            TSE.Message.sendPriority("COLLISION_ENTRY", undefined, col);
+                            CollisionManager._collisionData.push(col);
                         }
                     }
                 }
@@ -893,8 +1124,7 @@ var TSE;
                 CollisionManager._collisionData.splice(index, 1);
                 data.a.onCollisionExit(data.b);
                 data.a.onCollisionExit(data.a);
-                TSE.Message.sendPriority("COLLISION_EXIT:" + data.a.name, this, data);
-                TSE.Message.sendPriority("COLLISION_EXIT:" + data.b.name, this, data);
+                TSE.Message.sendPriority("COLLISION_EXIT", undefined, data);
             }
         };
         CollisionManager._totalTime = 0;
@@ -1045,6 +1275,7 @@ var TSE;
             var _this = _super !== null && _super.apply(this, arguments) || this;
             _this.frameSequence = [];
             _this.autoPlay = true;
+            _this.frameTime = 33;
             return _this;
         }
         // require all above properties to be present
@@ -1077,6 +1308,12 @@ var TSE;
             else {
                 this.frameSequence = json.frameSequence;
             }
+            if (json.frameTime === undefined) {
+                throw new Error("AnimatedSpriteComponentData requires 'frameTime' to be defined.");
+            }
+            else {
+                this.frameTime = Number(json.frameTime);
+            }
         };
         return AnimatedSpriteComponenetData;
     }(TSE.SpriteComponenetData));
@@ -1108,9 +1345,18 @@ var TSE;
         __extends(AnimatedSpriteComponent, _super);
         function AnimatedSpriteComponent(data) {
             var _this = _super.call(this, data) || this;
-            _this._autoPlay = true;
             _this._autoPlay = data.autoPlay;
-            _this._sprite = new TSE.AnimatedSprite(name, data.materialName, data.frameWidth, data.frameHeight, data.frameWidth, data.frameHeight, data.frameCount, data.frameSequence);
+            var spriteInfo = new TSE.AnimatedSpriteInfo();
+            spriteInfo.name = name;
+            spriteInfo.materialName = data.materialName;
+            spriteInfo.width = data.width;
+            spriteInfo.height = data.height;
+            spriteInfo.frameWidth = data.frameWidth;
+            spriteInfo.frameHeight = data.frameHeight;
+            spriteInfo.frameCount = data.frameCount;
+            spriteInfo.frameSequence = data.frameSequence;
+            spriteInfo.frameTime = data.frameTime;
+            _this._sprite = new TSE.AnimatedSprite(spriteInfo);
             // only run code if origin is default values
             if (!data.origin.equals(TSE.Vector3.zero)) {
                 _this._sprite.origin.copyFrom(data.origin);
@@ -1207,6 +1453,8 @@ var TSE;
                 _this._bitmapText.origin.copyFrom(data.origin);
             }
             _this._bitmapText.text = data.text;
+            // listen for text updates
+            TSE.Message.subscribe(_this.name + ":SetText", _this);
             return _this;
         }
         BitmapTextComponent.prototype.load = function () {
@@ -1218,6 +1466,11 @@ var TSE;
         BitmapTextComponent.prototype.render = function (shader) {
             this._bitmapText.draw(shader, this.owner.worldMatrix);
             _super.prototype.render.call(this, shader);
+        };
+        BitmapTextComponent.prototype.onMessage = function (message) {
+            if (message.code === this.name + ":SetText") {
+                this._bitmapText.text = String(message.context);
+            }
         };
         return BitmapTextComponent;
     }(TSE.BaseComponent));
@@ -1355,22 +1608,20 @@ var TSE;
         // height of game in pixels
         function Engine(width, height) {
             this._previousTime = 0;
+            this._isFirstUpdate = true;
             this._gameWidth = width;
             this._gameHeight = height;
         }
-        Engine.prototype.start = function () {
-            this._canvas = TSE.GLUtilities.initialize();
+        Engine.prototype.start = function (elementName) {
+            this._canvas = TSE.GLUtilities.initialize(elementName);
             // set width and height if exists
             if (this._gameWidth !== undefined && this._gameHeight !== undefined) {
                 // px for CSS property
-                this._canvas.style.width = this._gameWidth + "px";
-                this._canvas.style.height = this._gameHeight + "px";
-                this._canvas.width = this._gameWidth;
-                this._canvas.height = this._gameHeight;
+                this._aspect = this._gameWidth / this._gameHeight;
             }
             // initialize assets and zones
             TSE.AssetManager.initialize();
-            TSE.InputManager.initialize();
+            TSE.InputManager.initialize(this._canvas);
             TSE.ZoneManager.initialize();
             // what color the webgl will be cleared to for every frame
             TSE.gl.clearColor(146 / 255, 206 / 255, 247 / 255, 1);
@@ -1382,6 +1633,7 @@ var TSE;
             // load fonts
             TSE.BitmapFontManager.addFont("default", "assets/fonts/text.txt");
             TSE.BitmapFontManager.load();
+            TSE.MaterialManager.registerMaterial(new TSE.Material("text", "assets/fonts/text.png", TSE.Color.white()));
             // load materials
             TSE.MaterialManager.registerMaterial(new TSE.Material("leaves", "assets/textures/dk64-leaves.png", TSE.Color.white()));
             TSE.MaterialManager.registerMaterial(new TSE.Material("duck", "assets/textures/duck.png", TSE.Color.white()));
@@ -1389,6 +1641,12 @@ var TSE;
             TSE.MaterialManager.registerMaterial(new TSE.Material("bg", "assets/textures/bg.png", TSE.Color.white()));
             TSE.MaterialManager.registerMaterial(new TSE.Material("end", "assets/textures/end.png", TSE.Color.white()));
             TSE.MaterialManager.registerMaterial(new TSE.Material("middle", "assets/textures/middle.png", TSE.Color.white()));
+            // 19:21
+            TSE.MaterialManager.registerMaterial(new TSE.Material("playbtn", "assets/textures/playbtn.png", TSE.Color.white()));
+            TSE.MaterialManager.registerMaterial(new TSE.Material("restartbtn", "assets/textures/restartbtn.png", TSE.Color.white()));
+            TSE.MaterialManager.registerMaterial(new TSE.Material("score", "assets/textures/score.png", TSE.Color.white()));
+            TSE.MaterialManager.registerMaterial(new TSE.Material("title", "assets/textures/title.png", TSE.Color.white()));
+            TSE.MaterialManager.registerMaterial(new TSE.Material("tutorial", "assets/textures/tutorial.png", TSE.Color.white()));
             TSE.AudioManager.loadSoundFile("flap", "assets/sounds/flap.mp3", false);
             TSE.AudioManager.loadSoundFile("ting", "assets/sounds/ting.mp3", false);
             TSE.AudioManager.loadSoundFile("dead", "assets/sounds/dead.mp3", false);
@@ -1407,12 +1665,41 @@ var TSE;
                 if (this._gameWidth === undefined || this._gameHeight === undefined) {
                     this._canvas.width = window.innerWidth;
                     this._canvas.height = window.innerHeight;
+                    // change viewport to size of the window
+                    TSE.gl.viewport(0, 0, window.innerWidth, window.innerHeight);
+                    // not using an aspect ratio
+                    this._projection = TSE.Matrix4x4.orthographic(0, window.innerWidth, window.innerHeight, 0, -100.0, 100.0);
                 }
-                // tells webgl to use the full range of the viewport
-                TSE.gl.viewport(0, 0, this._canvas.width, this._canvas.height);
-                // give webgl a reference for the maximum area of the screen
-                TSE.gl.viewport(0, 0, TSE.gl.canvas.width, TSE.gl.canvas.height);
-                this._projection = TSE.Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
+                else {
+                    var newWidth = window.innerWidth;
+                    var newHeight = window.innerHeight;
+                    var newWidthToHeight = newWidth / newHeight;
+                    var gameArea = document.getElementById("gameArea");
+                    // grabs the new size and associated aspect ratio
+                    // calculates how big to resize the game area
+                    // sets gameArea style to appropriate width and height
+                    if (newWidthToHeight > this._aspect) {
+                        newWidth = newHeight * this._aspect;
+                        gameArea.style.height = newHeight + 'px';
+                        gameArea.style.width = newWidth + 'px';
+                    }
+                    else {
+                        newHeight = newWidth / this._aspect;
+                        gameArea.style.width = newWidth + 'px';
+                        gameArea.style.height = newHeight + 'px';
+                    }
+                    gameArea.style.marginTop = (-newHeight / 2) + 'px';
+                    gameArea.style.marginLeft = (-newWidth / 2) + 'px';
+                    // set size of the canvas
+                    this._canvas.width = newWidth;
+                    this._canvas.height = newHeight;
+                    // regenerate projection matrix
+                    TSE.gl.viewport(0, 0, newWidth, newHeight);
+                    this._projection = TSE.Matrix4x4.orthographic(0, this._gameWidth, this._gameHeight, 0, -100.0, 100.0);
+                    // resolution scale is used by input manager
+                    var resolutionScale = new TSE.Vector2(newWidth / this._gameWidth, newHeight / this._gameHeight);
+                    TSE.InputManager.setResolutionScale(resolutionScale);
+                }
             }
         };
         Engine.prototype.onMessage = function (message) {
@@ -1422,6 +1709,9 @@ var TSE;
             }
         };
         Engine.prototype.loop = function () {
+            // check for first update
+            if (this._isFirstUpdate) {
+            }
             this.update();
             this.render();
             // runs about 60 fps, originally designed for animations 
@@ -1805,9 +2095,6 @@ var TSE;
             this._height = height;
             this._materialName = materialName;
             this._material = TSE.MaterialManager.getMaterial(this._materialName);
-            if (name === "grass") {
-                console.log("GROUND SPRITE");
-            }
         }
         Object.defineProperty(Sprite.prototype, "name", {
             get: function () {
@@ -1865,7 +2152,6 @@ var TSE;
         Sprite.prototype.update = function (time) {
         };
         // draw method of sprite changes to use a model instead of a position variable
-        //
         Sprite.prototype.draw = function (shader, model) {
             // take in a model matrix
             var modelLocation = shader.getUniformLocation("u_model");
@@ -1951,6 +2237,19 @@ var TSE;
         }
         return UVInfo;
     }());
+    var AnimatedSpriteInfo = /** @class */ (function () {
+        function AnimatedSpriteInfo() {
+            this.width = 100;
+            this.height = 100;
+            this.frameWidth = 10;
+            this.frameHeight = 10;
+            this.frameCount = 1;
+            this.frameSequence = [];
+            this.frameTime = 60;
+        }
+        return AnimatedSpriteInfo;
+    }());
+    TSE.AnimatedSpriteInfo = AnimatedSpriteInfo;
     /**
      * Represents a 2-dimensional animated sprite
      * @_frameHeight height of frame in sprite sheet
@@ -1964,27 +2263,21 @@ var TSE;
      */
     var AnimatedSprite = /** @class */ (function (_super) {
         __extends(AnimatedSprite, _super);
-        function AnimatedSprite(name, materialName, width, height, frameWidth, frameHeight, frameCount, frameSequence) {
-            if (width === void 0) { width = 50; }
-            if (height === void 0) { height = 50; }
-            if (frameWidth === void 0) { frameWidth = 10; }
-            if (frameHeight === void 0) { frameHeight = 10; }
-            if (frameCount === void 0) { frameCount = 1; }
-            if (frameSequence === void 0) { frameSequence = []; }
-            var _this = _super.call(this, name, materialName, width, height) || this;
+        function AnimatedSprite(info) {
+            var _this = _super.call(this, info.name, info.materialName, info.width, info.height) || this;
             _this._currentFrame = 0;
             _this._frameUVs = [];
-            // TODO: make configurable
-            _this._frameTime = 333;
+            _this._frameTime = 33;
             _this._currentTime = 0;
             _this._assetLoaded = false;
             _this._assetWidth = 2;
             _this._assetHeight = 2;
             _this._isPlaying = true;
-            _this._frameHeight = frameHeight;
-            _this._frameWidth = frameWidth;
-            _this._frameCount = frameCount;
-            _this._frameSequence = frameSequence;
+            _this._frameHeight = info.frameHeight;
+            _this._frameWidth = info.frameWidth;
+            _this._frameCount = info.frameCount;
+            _this._frameSequence = info.frameSequence;
+            _this._frameTime = info.frameTime;
             // message subscription is for calculating UVs
             TSE.Message.subscribe(TSE.MESSAGE_ASSET_LOADER_ASSET_LOADED + _this._material.diffuseTextureName, _this);
             return _this;
@@ -2119,6 +2412,8 @@ var TSE;
     }(TSE.Sprite));
     TSE.AnimatedSprite = AnimatedSprite;
 })(TSE || (TSE = {}));
+/// <reference path="../assets/imageassetloader.ts" />
+/// <reference path="../engine.ts" />
 var TSE;
 (function (TSE) {
     var FontUtilities = /** @class */ (function () {
@@ -2202,6 +2497,8 @@ var TSE;
         BitmapFont.prototype.load = function () {
             // get the asset
             var asset = TSE.AssetManager.getAsset(this._fontFileName);
+            console.log("LOAD IN THE ASSET~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+            console.log(this._fontFileName);
             // if asset isn't loaded
             if (asset !== undefined) {
                 this.processFontFile(asset.data);
@@ -2255,6 +2552,8 @@ var TSE;
          */
         BitmapFont.prototype.processFontFile = function (content) {
             var charCount = 0;
+            console.log("PROCESS FONT FILE~~~~~~~~~~~~~~~~~~");
+            console.log(content);
             var lines = content.split("\n");
             for (var _i = 0, lines_1 = lines; _i < lines_1.length; _i++) {
                 var line = lines_1[_i];
@@ -2650,8 +2949,8 @@ var TSE;
             positionAttribute.size = 3;
             this._buffer.addAttributeLocation(positionAttribute);
             var texCoordAttribute = new TSE.AttributeInfo();
-            texCoordAttribute.location = 0;
-            texCoordAttribute.size = 3;
+            texCoordAttribute.location = 1;
+            texCoordAttribute.size = 2;
             this._buffer.addAttributeLocation(texCoordAttribute);
         };
         BitmapText.prototype.update = function (time) {
@@ -2700,28 +2999,25 @@ var TSE;
                 var minv = g.y / this._bitmapFont.imageHeight;
                 var maxu = (g.x + g.width) / this._bitmapFont.imageWidth;
                 var maxv = (g.y + g.height) / this._bitmapFont.imageHeight;
-                // quad creation for the images of letters
-                /*this._vertices.push(new Vertex(minX, minY, 0, minu, minv));
-                this._vertices.push(new Vertex(minX, maxY, 0, minu, maxv));
-                this._vertices.push(new Vertex(maxX, maxY, 0, maxu, maxv));
-
-                this._vertices.push(new Vertex(maxX, maxY, 0, maxu, maxv));
-                this._vertices.push(new Vertex(maxX, minY, 0, maxu, minv));
-                this._vertices.push(new Vertex(minX, minY, 0, minu, minv));*/
-                minX = 0;
-                minY = 0;
-                maxX = 100;
-                maxY = 100;
                 minu = 0;
                 minv = 0;
-                maxu = 10;
-                maxu = 10;
+                maxu = 1;
+                maxv = 1;
+                // quad creation for the images of letters
                 this._vertices.push(new TSE.Vertex(minX, minY, 0, minu, minv));
                 this._vertices.push(new TSE.Vertex(minX, maxY, 0, minu, maxv));
                 this._vertices.push(new TSE.Vertex(maxX, maxY, 0, maxu, maxv));
+                this._vertices.push(new TSE.Vertex(maxX, maxY, 0, maxu, maxv));
                 this._vertices.push(new TSE.Vertex(maxX, minY, 0, maxu, minv));
                 this._vertices.push(new TSE.Vertex(minX, minY, 0, minu, minv));
-                this._vertices.push(new TSE.Vertex(maxX, maxY, 0, maxu, maxv));
+                // 5,3,4 texture coords
+                /*this._vertices.push(new Vertex(maxX, maxY, 0, minu, minv));
+                this._vertices.push(new Vertex(maxX, minY, 0, maxu, maxv));
+                this._vertices.push(new Vertex(minX, minY, 0, maxu, minv));
+
+                this._vertices.push(new Vertex(maxX, maxY, 0, minu, minv));
+                this._vertices.push(new Vertex(maxX, minY, 0, maxu, maxv));
+                this._vertices.push(new Vertex(minX, minY, 0, maxu, minv));*/
                 x += g.xAdvance;
             }
             for (var _b = 0, _c = this._vertices; _b < _c.length; _b++) {
@@ -2807,10 +3103,18 @@ var TSE;
 var TSE;
 (function (TSE) {
     var Rectangle2D = /** @class */ (function () {
-        function Rectangle2D() {
+        function Rectangle2D(x, y, width, height) {
+            if (x === void 0) { x = 0; }
+            if (y === void 0) { y = 0; }
+            if (width === void 0) { width = 0; }
+            if (height === void 0) { height = 0; }
             this.position = TSE.Vector2.zero;
             // temporary fix for boundary positions
             this.origin = TSE.Vector2.zero;
+            this.position.x = x;
+            this.position.y = y;
+            this.width = width;
+            this.height = height;
         }
         Object.defineProperty(Rectangle2D.prototype, "offset", {
             /**
@@ -2842,11 +3146,9 @@ var TSE;
         Rectangle2D.prototype.intersect = function (other) {
             // case when other shape is rectangle
             if (other instanceof Rectangle2D) {
-                // check if any of the four corners of the bounding rectangle intersect
-                return (this.pointInShape(other.position) ||
-                    this.pointInShape(new TSE.Vector2(other.position.x + other.width, other.position.y)) ||
-                    this.pointInShape(new TSE.Vector2(other.position.x + other.width, other.position.y + other.height)) ||
-                    this.pointInShape(new TSE.Vector2(other.position.x, other.position.y + other.height)));
+                var a = this.getExtents(this);
+                var b = this.getExtents(other);
+                return (a.position.x <= b.width && a.width >= b.position.x) && (a.position.y <= b.height && a.height >= b.position.y);
             }
             if (other instanceof TSE.Circle2D) {
                 var deltaX = other.position.x - Math.max(this.position.x, Math.min(other.position.x, this.position.x + this.width));
@@ -2868,6 +3170,13 @@ var TSE;
             }
             // if shape is unknown then don't intersect
             return false;
+        };
+        Rectangle2D.prototype.getExtents = function (shape) {
+            var x = shape.width < 0 ? shape.position.x - shape.width : shape.position.x;
+            var y = shape.height < 0 ? shape.position.y - shape.height : shape.position.y;
+            var extentX = shape.width < 0 ? shape.position.x : shape.position.x + shape.width;
+            var extentY = shape.height < 0 ? shape.position.y : shape.position.y + shape.height;
+            return new Rectangle2D(x, y, extentX, extentY);
         };
         return Rectangle2D;
     }());
@@ -3078,6 +3387,118 @@ var TSE;
 })(TSE || (TSE = {}));
 var TSE;
 (function (TSE) {
+    var Vector2 = /** @class */ (function () {
+        function Vector2(x, y) {
+            if (x === void 0) { x = 0; }
+            if (y === void 0) { y = 0; }
+            this._x = x;
+            this._y = y;
+        }
+        Object.defineProperty(Vector2.prototype, "x", {
+            get: function () {
+                return this._x;
+            },
+            set: function (value) {
+                this._x = value;
+            },
+            enumerable: false,
+            configurable: true
+        });
+        Object.defineProperty(Vector2.prototype, "y", {
+            get: function () {
+                return this._y;
+            },
+            set: function (value) {
+                this._y = value;
+            },
+            enumerable: false,
+            configurable: true
+        });
+        Object.defineProperty(Vector2, "zero", {
+            // you DO NOT want to create this returned vector statically and simply return it
+            // if you did, then the same reference would be used all over the code
+            get: function () {
+                return new Vector2();
+            },
+            enumerable: false,
+            configurable: true
+        });
+        Object.defineProperty(Vector2, "one", {
+            get: function () {
+                return new Vector2(1, 1);
+            },
+            enumerable: false,
+            configurable: true
+        });
+        Vector2.distance = function (a, b) {
+            var diff = a.clone().subtract(b);
+            return Math.sqrt(diff.x * diff.x + diff.y * diff.y);
+        };
+        Vector2.prototype.copyFrom = function (v) {
+            this._x = v._x;
+            this._y = v._y;
+        };
+        Vector2.prototype.toArray = function () {
+            return [this._x, this._y];
+        };
+        Vector2.prototype.toFloat32Array = function () {
+            return new Float32Array(this.toArray());
+        };
+        Vector2.prototype.toVector3 = function () {
+            return new TSE.Vector3(this._x, this._y, 0);
+        };
+        Vector2.prototype.set = function (x, y) {
+            if (x !== undefined) {
+                this._x = x;
+            }
+            if (y !== undefined) {
+                this._y = y;
+            }
+        };
+        // set only the values that have been defined
+        Vector2.prototype.setFromJson = function (json) {
+            if (json.x !== undefined) {
+                this._x = Number(json.x);
+            }
+            if (json.y !== undefined) {
+                this._y = Number(json.y);
+            }
+        };
+        Vector2.prototype.add = function (v) {
+            this._x += v._x;
+            this._y += v._y;
+            return this;
+        };
+        Vector2.prototype.subtract = function (v) {
+            this._x -= v._x;
+            this._y -= v._y;
+            return this;
+        };
+        Vector2.prototype.multiply = function (v) {
+            this._x *= v._x;
+            this._y *= v._y;
+            return this;
+        };
+        Vector2.prototype.divide = function (v) {
+            this._x /= v._x;
+            this._y /= v._y;
+            return this;
+        };
+        Vector2.prototype.scale = function (scale) {
+            this._x *= scale;
+            this._y *= scale;
+            return this;
+        };
+        Vector2.prototype.clone = function () {
+            return new Vector2(this._x, this._y);
+        };
+        return Vector2;
+    }());
+    TSE.Vector2 = Vector2;
+})(TSE || (TSE = {}));
+/// <reference path="../math/vector2.ts" />
+var TSE;
+(function (TSE) {
     /**
      * keys that exist outside of the Input Manager
      */
@@ -3103,22 +3524,25 @@ var TSE;
     var InputManager = /** @class */ (function () {
         function InputManager() {
         }
-        InputManager.initialize = function () {
+        InputManager.initialize = function (viewport) {
             // default all keys to false, no input
             for (var i = 0; i < 255; ++i) {
                 InputManager._keys[i] = false;
             }
             window.addEventListener("keydown", InputManager.onKeyDown);
             window.addEventListener("keyup", InputManager.onKeyUp);
-            window.addEventListener("mousemove", InputManager.onMouseMove);
-            window.addEventListener("mousedown", InputManager.onMouseDown);
-            window.addEventListener("mouseup", InputManager.onMouseUp);
+            viewport.addEventListener("mousemove", InputManager.onMouseMove);
+            viewport.addEventListener("mousedown", InputManager.onMouseDown);
+            viewport.addEventListener("mouseup", InputManager.onMouseUp);
         };
         InputManager.isKeyDown = function (key) {
             return InputManager._keys[key];
         };
         InputManager.getMousePosition = function () {
             return new TSE.Vector2(InputManager._mouseX, InputManager._mouseY);
+        };
+        InputManager.setResolutionScale = function (scale) {
+            InputManager._resolutionScale.copyFrom(scale);
         };
         /**
          * Capture our key events
@@ -3147,8 +3571,9 @@ var TSE;
         InputManager.onMouseMove = function (event) {
             InputManager._previousMouseX = InputManager._mouseX;
             InputManager._previousMouseY = InputManager._mouseY;
-            InputManager._mouseX = event.clientX;
-            InputManager._mouseY = event.clientY;
+            var rect = event.target.getBoundingClientRect();
+            InputManager._mouseX = (event.clientX - Math.round(rect.left)) * (1 / InputManager._resolutionScale.x);
+            InputManager._mouseY = (event.clientY - Math.round(rect.top)) * (1 / InputManager._resolutionScale.y);
         };
         /**
          * capture mouse buttons
@@ -3176,6 +3601,7 @@ var TSE;
         InputManager._keys = [];
         InputManager._leftDown = false;
         InputManager._rightDown = false;
+        InputManager._resolutionScale = TSE.Vector2.zero;
         return InputManager;
     }());
     TSE.InputManager = InputManager;
@@ -3407,117 +3833,6 @@ var TSE;
         return Transform;
     }());
     TSE.Transform = Transform;
-})(TSE || (TSE = {}));
-var TSE;
-(function (TSE) {
-    var Vector2 = /** @class */ (function () {
-        function Vector2(x, y) {
-            if (x === void 0) { x = 0; }
-            if (y === void 0) { y = 0; }
-            this._x = x;
-            this._y = y;
-        }
-        Object.defineProperty(Vector2.prototype, "x", {
-            get: function () {
-                return this._x;
-            },
-            set: function (value) {
-                this._x = value;
-            },
-            enumerable: false,
-            configurable: true
-        });
-        Object.defineProperty(Vector2.prototype, "y", {
-            get: function () {
-                return this._y;
-            },
-            set: function (value) {
-                this._y = value;
-            },
-            enumerable: false,
-            configurable: true
-        });
-        Object.defineProperty(Vector2, "zero", {
-            // you DO NOT want to create this returned vector statically and simply return it
-            // if you did, then the same reference would be used all over the code
-            get: function () {
-                return new Vector2();
-            },
-            enumerable: false,
-            configurable: true
-        });
-        Object.defineProperty(Vector2, "one", {
-            get: function () {
-                return new Vector2(1, 1);
-            },
-            enumerable: false,
-            configurable: true
-        });
-        Vector2.distance = function (a, b) {
-            var diff = a.clone().subtract(b);
-            return Math.sqrt(diff.x * diff.x + diff.y * diff.y);
-        };
-        Vector2.prototype.copyFrom = function (v) {
-            this._x = v._x;
-            this._y = v._y;
-        };
-        Vector2.prototype.toArray = function () {
-            return [this._x, this._y];
-        };
-        Vector2.prototype.toFloat32Array = function () {
-            return new Float32Array(this.toArray());
-        };
-        Vector2.prototype.toVector3 = function () {
-            return new TSE.Vector3(this._x, this._y, 0);
-        };
-        Vector2.prototype.set = function (x, y) {
-            if (x !== undefined) {
-                this._x = x;
-            }
-            if (y !== undefined) {
-                this._y = y;
-            }
-        };
-        // set only the values that have been defined
-        Vector2.prototype.setFromJson = function (json) {
-            if (json.x !== undefined) {
-                this._x = Number(json.x);
-            }
-            if (json.y !== undefined) {
-                this._y = Number(json.y);
-            }
-        };
-        Vector2.prototype.add = function (v) {
-            this._x += v._x;
-            this._y += v._y;
-            return this;
-        };
-        Vector2.prototype.subtract = function (v) {
-            this._x -= v._x;
-            this._y -= v._y;
-            return this;
-        };
-        Vector2.prototype.multiply = function (v) {
-            this._x *= v._x;
-            this._y *= v._y;
-            return this;
-        };
-        Vector2.prototype.divide = function (v) {
-            this._x /= v._x;
-            this._y /= v._y;
-            return this;
-        };
-        Vector2.prototype.scale = function (scale) {
-            this._x *= scale;
-            this._y *= scale;
-            return this;
-        };
-        Vector2.prototype.clone = function () {
-            return new Vector2(this._x, this._y);
-        };
-        return Vector2;
-    }());
-    TSE.Vector2 = Vector2;
 })(TSE || (TSE = {}));
 var TSE;
 (function (TSE) {
@@ -3826,6 +4141,7 @@ var TSE;
             this._isLoaded = false;
             this._components = [];
             this._behaviors = [];
+            this._isVisible = true;
             this._localMatrix = TSE.Matrix4x4.identity();
             this._worldMatrix = TSE.Matrix4x4.identity();
             this.transform = new TSE.Transform();
@@ -3857,6 +4173,16 @@ var TSE;
         Object.defineProperty(SimObject.prototype, "isLoaded", {
             get: function () {
                 return this._isLoaded;
+            },
+            enumerable: false,
+            configurable: true
+        });
+        Object.defineProperty(SimObject.prototype, "isVisible", {
+            get: function () {
+                return this._isVisible;
+            },
+            set: function (value) {
+                this._isVisible = value;
             },
             enumerable: false,
             configurable: true
@@ -3994,6 +4320,10 @@ var TSE;
          * recursivley update children
          */
         SimObject.prototype.render = function (shader) {
+            // check visibility 
+            if (!this._isVisible) {
+                return;
+            }
             for (var _i = 0, _a = this._components; _i < _a.length; _i++) {
                 var c = _a[_i];
                 c.render(shader);
@@ -4278,6 +4608,9 @@ var TSE;
             ZoneManager._activeZone.initialize(zoneData);
             ZoneManager._activeZone.onActivated();
             ZoneManager._activeZone.load();
+            // Game is ready
+            // Change state to splash
+            TSE.Message.send("GAME_READY", this);
         };
         // hashmap of zones
         // globalZoneID is a globally incrmeenting number to populate the zone
