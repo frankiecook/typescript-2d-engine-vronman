@@ -54,8 +54,7 @@
 
 		// if asset exists return asset, if not then load it and return undefined
 		public static getAsset(assetName: string): IAsset {
-			console.log("ASSET MANAGER~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-			console.log(AssetManager._loadedAssets);
+			
 			if (AssetManager._loadedAssets[assetName] !== undefined) {
 				return AssetManager._loadedAssets[assetName];
 			} else {

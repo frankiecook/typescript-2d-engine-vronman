@@ -132,7 +132,7 @@
 					"transform": {
 						"position": {
 							"x": 34,
-							"y": 122
+							"y": 150
 						}						
 					},
 					"components": [
@@ -607,7 +607,7 @@
 					"name": "ground1Scroller",
 					"type": "scroll",
 					"velocity": {
-						"x": -120,
+						"x": -220,
 						"y": 0
 					},
 					"minPosition": {
@@ -654,7 +654,7 @@
 					"name": "groundScroller2",
 					"type": "scroll",
 					"velocity": {
-						"x": -120,
+						"x": -220,
 						"y": 0
 					},
 					"minPosition": {

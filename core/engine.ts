@@ -53,7 +53,7 @@ namespace TSE {
 			// load fonts
 			BitmapFontManager.addFont("default", "assets/fonts/text.txt");
 			BitmapFontManager.load();
-			MaterialManager.registerMaterial(new Material("text", "assets/fonts/text.png", Color.white()));
+			//MaterialManager.registerMaterial(new Material("text", "assets/fonts/text.png", Color.white()));
 
 			// load materials
 			MaterialManager.registerMaterial(new Material("leaves", "assets/textures/dk64-leaves.png", Color.white()));
@@ -68,6 +68,8 @@ namespace TSE {
 			MaterialManager.registerMaterial(new Material("score", "assets/textures/score.png", Color.white()));
 			MaterialManager.registerMaterial(new Material("title", "assets/textures/title.png", Color.white()));
 			MaterialManager.registerMaterial(new Material("tutorial", "assets/textures/tutorial.png", Color.white()));
+
+			MaterialManager.registerMaterial(new Material("redborder", "assets/textures/redborder.png", Color.white()));
 
 			AudioManager.loadSoundFile("flap", "assets/sounds/flap.mp3", false);
 			AudioManager.loadSoundFile("ting", "assets/sounds/ting.mp3", false);

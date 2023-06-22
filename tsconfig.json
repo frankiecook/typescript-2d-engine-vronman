@@ -1,6 +1,9 @@
 {
     "compilerOptions": {
+        // old instruction
         "module": "amd",
+        //"module": "CommonJS",
+        "sourceMap": true,
         "noImplicitAny": true,
         "removeComments": true,
         "preserveConstEnums": true,

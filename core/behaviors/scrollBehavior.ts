@@ -94,6 +94,8 @@
 		private _maxResetY: number;
 		private _isScrolling: boolean = false;
 		private _initialPosition: Vector2 = Vector2.zero;
+		private tempVector: Vector3;
+		
 
 		public constructor(data: ScrollBehaviorData) {
 			super(data);
@@ -135,10 +137,29 @@
 		}
 
 		public update(time: number): void {
+
 			if (this._isScrolling) {
 
 				// scale time to be in seconds
-				this._owner.transform.position.add(this._velocity.clone().scale(time / 1000).toVector3());
+				this.tempVector = this._velocity.clone().scale(time / 1000).toVector3();
+
+				/** GLITCH
+				 * two sequential ground elements eventually desync and leave gaps between each
+				 * sprite when resetting
+				 * PROBLEM
+				 * scrolling calculation is non-whole (integer) 
+				 * allows for the reset position to activate slightly before or after it should
+				 * TEMPORARY SOLUTION
+				 * set all scroll behavior movement to be an integer found below 
+				 * a better solution would be to split a sprite into two
+				 */
+				
+				this.tempVector.x = -2
+				this._owner.transform.position.add(this.tempVector);
+
+				if (this._owner.transform.position.x < -330) {
+					this._owner.transform.position.x = -330;
+				}
 
 				let scrollY = this._minResetY !== undefined && this._maxResetY !== undefined;
 				if (this._owner.transform.position.x <= this._minPosition.x &&
@@ -159,6 +180,7 @@
 		}
 
 		private reset(): void {
+
 			if (this._minResetY !== undefined && this._maxResetY !== undefined) {
 				this._owner.transform.position.set(this._resetPosition.x, this.getRandomY());
 			} else {

@@ -1,6 +1,6 @@
-﻿/// <reference path="componentmanager.ts" />
-/// <reference path="basecomponent.ts" />
-/// <reference path="spritecomponent.ts" />
+﻿/// <reference path="componentManager.ts" />
+/// <reference path="baseComponent.ts" />
+/// <reference path="spriteComponent.ts" />
 
 namespace TSE {
 
@@ -82,7 +82,7 @@ namespace TSE {
 			this._autoPlay = data.autoPlay;
 
 			let spriteInfo = new AnimatedSpriteInfo();
-			spriteInfo.name = name;
+			spriteInfo.name = data.name;
 			spriteInfo.materialName = data.materialName;
 			spriteInfo.width = data.width;
 			spriteInfo.height = data.height;

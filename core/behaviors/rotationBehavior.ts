@@ -1,5 +1,5 @@
-﻿/// <reference path="basebehavior.ts" />
-/// <reference path="behaviormanager.ts" />
+﻿/// <reference path="baseBehavior.ts" />
+/// <reference path="behaviorManager.ts" />
 
 namespace TSE {
 
@@ -48,7 +48,7 @@ namespace TSE {
 
 		public update(time: number): void {
 			/* basic computation for rotation */
-			this._owner.transform.rotation.add(this._rotation);
+			//this._owner.transform.rotation.add(this._rotation);
 
 			super.update(time);
 		}

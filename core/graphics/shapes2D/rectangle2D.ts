@@ -22,6 +22,8 @@
 		 * provide offset value
 		 */
 		public get offset(): Vector2 {
+			//return new Vector2(0.5 * this.width, 0.5 * this.height);
+			//return new Vector2(29,29);
 			return new Vector2((this.width * this.origin.x), (this.height * this.origin.y));
 		}
 
@@ -32,6 +34,10 @@
 
 			if (json.offset !== undefined) {
 				this.offset.setFromJson(json.offset);
+			}
+
+			if (json.origin !== undefined) {
+				this.origin.setFromJson(json.origin);
 			}
 
 			if (json.width === undefined) {
@@ -84,8 +90,8 @@
 		}
 
 		private getExtents(shape: Rectangle2D): Rectangle2D {
-			let x = shape.width < 0 ? shape.position.x - shape.width : shape.position.x;
-			let y = shape.height < 0 ? shape.position.y - shape.height : shape.position.y;
+			let x = shape.width < 0 ? shape.position.x + shape.width : shape.position.x;
+			let y = shape.height < 0 ? shape.position.y + shape.height : shape.position.y;
 
 			let extentX = shape.width < 0 ? shape.position.x : shape.position.x + shape.width;
 			let extentY = shape.height < 0 ? shape.position.y : shape.position.y + shape.height;

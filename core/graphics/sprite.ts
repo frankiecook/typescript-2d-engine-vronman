@@ -61,7 +61,6 @@
 			positionAttribute.size = 3;
 			this._buffer.addAttributeLocation(positionAttribute);
 
-
 			let texCoordAttribute = new AttributeInfo();
 			texCoordAttribute.location = 1;
 			texCoordAttribute.size = 2;

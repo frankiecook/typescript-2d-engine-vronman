@@ -96,7 +96,7 @@ namespace TSE {
 		}
 
 		/**
-		 * takes all the text and convertes it to images to be drawn
+		 * takes all the text and converts it to images to be drawn
 		 */
 		private calculateVertices(): void {
 			this._vertices.length = 0;
@@ -129,11 +129,6 @@ namespace TSE {
 				let maxu = (g.x + g.width) / this._bitmapFont.imageWidth;
 				let maxv = (g.y + g.height) / this._bitmapFont.imageHeight;
 
-				minu = 0;
-				minv = 0;
-				maxu = 1;
-				maxv = 1;
-
 				// quad creation for the images of letters
 				this._vertices.push(new Vertex(minX, minY, 0, minu, minv));
 				this._vertices.push(new Vertex(minX, maxY, 0, minu, maxv));
@@ -142,16 +137,6 @@ namespace TSE {
 				this._vertices.push(new Vertex(maxX, maxY, 0, maxu, maxv));
 				this._vertices.push(new Vertex(maxX, minY, 0, maxu, minv));
 				this._vertices.push(new Vertex(minX, minY, 0, minu, minv));
-
-				// 5,3,4 texture coords
-
-				/*this._vertices.push(new Vertex(maxX, maxY, 0, minu, minv));
-				this._vertices.push(new Vertex(maxX, minY, 0, maxu, maxv));
-				this._vertices.push(new Vertex(minX, minY, 0, maxu, minv));
-
-				this._vertices.push(new Vertex(maxX, maxY, 0, minu, minv));
-				this._vertices.push(new Vertex(maxX, minY, 0, maxu, maxv));
-				this._vertices.push(new Vertex(minX, minY, 0, maxu, minv));*/
 
 				x += g.xAdvance;
 			}

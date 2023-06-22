@@ -1,7 +1,9 @@
+var engine;
+// the main entry piont to the program
 window.onload = function () {
-    var e = new TSE.Engine();
-    console.log(e);
-    e.start();
-    document.body.innerHTML += "TSE.Engin() Started.";
+    engine = new TSE.Engine(320, 480);
+    engine.start("viewport");
 };
-//# sourceMappingURL=app.js.map
+window.onresize = function () {
+    engine.resize();
+};

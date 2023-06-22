@@ -1,4 +1,6 @@
-﻿namespace TSE {
+﻿/// <reference path="componentManager.ts" />
+
+namespace TSE {
 
 	export class BitmapTextComponentData implements IComponentData {
 		public name: string;

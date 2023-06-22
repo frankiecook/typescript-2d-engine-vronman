@@ -1,5 +1,5 @@
-﻿/// <reference path="basebehavior.ts" />
-/// <reference path="behaviormanager.ts" />
+﻿/// <reference path="baseBehavior.ts" />
+/// <reference path="behaviorManager.ts" />
 
 namespace TSE {
 

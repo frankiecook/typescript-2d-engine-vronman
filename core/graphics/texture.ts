@@ -100,7 +100,6 @@
 
 			if (this.isPowerof2()) {
 				gl.generateMipmap(gl.TEXTURE_2D);
-				console.log("MIPMAPS");
 			} else {
 				// do not generate a mip map and clamp wrapping to edge
 				// S,T are equavalent to U,V

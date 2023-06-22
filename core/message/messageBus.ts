@@ -48,7 +48,7 @@
 		 * 
 		 */
 		public static post(message: Message): void {
-			console.log("Message posted:", message);
+			//console.log("Message posted:", message);
 
 			// check if we have any handlers for this code 'message'
 			let handlers = MessageBus._subscriptions[message.code];

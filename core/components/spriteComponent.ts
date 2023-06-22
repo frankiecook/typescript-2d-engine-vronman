@@ -1,4 +1,4 @@
-﻿/// <reference path="componentmanager.ts" />
+﻿/// <reference path="componentManager.ts" />
 
 namespace TSE {
 
@@ -61,7 +61,7 @@ namespace TSE {
 
 			this._width = data.width;
 			this._height = data.height;
-			this._sprite = new Sprite(name, data.materialName, this._width, this._height);
+			this._sprite = new Sprite(data.name, data.materialName, this._width, this._height);
 
 			// only run code if origin is default values
 			if (!data.origin.equals(Vector3.zero)) {
@@ -76,7 +76,7 @@ namespace TSE {
 		public render(shader: Shader) {
 			
 			this._sprite.draw(shader, this.owner.worldMatrix);
-
+			
 			super.render(shader);
 		}
 	}
