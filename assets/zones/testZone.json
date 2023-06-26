@@ -619,7 +619,8 @@
 						"y": 458
 					},
 					"resetMessage": "GAME_RESET",
-					"startMessage": "GAME_SHOW"
+					"startMessage": "GAME_SHOW",
+					"stopMessage": "PLAYER_DIED"
 				}
 			]
 		},
@@ -666,7 +667,8 @@
 						"y": 458
 					},
 					"resetMessage": "GAME_RESET",
-					"startMessage": "GAME_SHOW"
+					"startMessage": "GAME_SHOW",
+					"stopMessage": "PLAYER_DIED"
 				}
 			]
 		},

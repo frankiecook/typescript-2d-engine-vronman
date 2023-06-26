@@ -13,7 +13,10 @@ var TSE;
             this._gameHeight = height;
         }
         Engine.prototype.start = function (elementName) {
-            this._canvas = GLUtilities.initialize(elementName);
+            // temporayily removed
+            console.log(elementName);
+            this._canvas = document.getElementById(elementName);//GLUtilities.initialize("glcanvas");
+
             // set width and height if exists
             if (this._gameWidth !== undefined && this._gameHeight !== undefined) {
                 // px for CSS property
@@ -23,19 +26,20 @@ var TSE;
             AssetManager.initialize();
             InputManager.initialize(this._canvas);
             ZoneManager.initialize();
+
             // what color the webgl will be cleared to for every frame
             gl.clearColor(146 / 255, 206 / 255, 247 / 255, 1);
             gl.enable(gl.BLEND);
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
             this._basicShader = new BasicShader();
             this._basicShader.use();
             this._projection = Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
+            
             // load fonts
             BitmapFontManager.addFont("default", "assets/fonts/text.txt");
             BitmapFontManager.load();
-            console.log("FONTLOADED||||||||||||||||||||");
-            console.log(BitmapFontManager.getFont("default").textureName);
-            //MaterialManager.registerMaterial(new Material("text", "assets/fonts/text.png", Color.white()));
+
             // load materials
             MaterialManager.registerMaterial(new Material("leaves", "assets/textures/dk64-leaves.png", Color.white()));
             MaterialManager.registerMaterial(new Material("duck", "assets/textures/duck.png", Color.white()));
@@ -43,18 +47,21 @@ var TSE;
             MaterialManager.registerMaterial(new Material("bg", "assets/textures/bg.png", Color.white()));
             MaterialManager.registerMaterial(new Material("end", "assets/textures/end.png", Color.white()));
             MaterialManager.registerMaterial(new Material("middle", "assets/textures/middle.png", Color.white()));
-            // 19:21
+
             MaterialManager.registerMaterial(new Material("playbtn", "assets/textures/playbtn.png", Color.white()));
             MaterialManager.registerMaterial(new Material("restartbtn", "assets/textures/restartbtn.png", Color.white()));
             MaterialManager.registerMaterial(new Material("score", "assets/textures/score.png", Color.white()));
             MaterialManager.registerMaterial(new Material("title", "assets/textures/title.png", Color.white()));
             MaterialManager.registerMaterial(new Material("tutorial", "assets/textures/tutorial.png", Color.white()));
+            
             AudioManager.loadSoundFile("flap", "assets/sounds/flap.mp3", false);
             AudioManager.loadSoundFile("ting", "assets/sounds/ting.mp3", false);
             AudioManager.loadSoundFile("dead", "assets/sounds/dead.mp3", false);
+
             // load
             this._projection = Matrix4x4.orthographic(0, this._canvas.width, this._canvas.height, 0, -100.0, 100.0);
             this.resize();
+            
             // begin the preloading phase, which waits for various thingsto be loaded before starting the game
             this.preloading();
         };
@@ -76,7 +83,7 @@ var TSE;
                     var newWidth = window.innerWidth;
                     var newHeight = window.innerHeight;
                     var newWidthToHeight = newWidth / newHeight;
-                    var gameArea = document.getElementById("gameArea");
+                    var gameArea = document.getElementById("glcanvas_container2");
                     // grabs the new size and associated aspect ratio
                     // calculates how big to resize the game area
                     // sets gameArea style to appropriate width and height

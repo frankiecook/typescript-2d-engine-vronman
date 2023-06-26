@@ -16,7 +16,7 @@ var __extends = (this && this.__extends) || (function () {
 var engine;
 window.onload = function () {
     engine = new TSE.Engine(320, 480);
-    engine.start("viewport");
+    engine.start("glcanvas");
 };
 window.onresize = function () {
     engine.resize();
@@ -74,22 +74,20 @@ var TSE;
                     this._projection = TSE.Matrix4x4.orthographic(0, window.innerWidth, window.innerHeight, 0, -100.0, 100.0);
                 }
                 else {
-                    var newWidth = window.innerWidth;
-                    var newHeight = window.innerHeight;
-                    var newWidthToHeight = newWidth / newHeight;
-                    var gameArea = document.getElementById("gameArea");
-                    if (newWidthToHeight > this._aspect) {
-                        newWidth = newHeight * this._aspect;
-                        gameArea.style.height = newHeight + 'px';
-                        gameArea.style.width = newWidth + 'px';
+                    var gameArea = document.getElementById("viewport");
+                    var gameAreaContainer = document.getElementById("glcanvas_container");
+                    var maxWidth = gameAreaContainer.clientWidth;
+                    var maxHeight = gameAreaContainer.clientHeight;
+                    var newHeight = maxWidth / this._aspect;
+                    var newWidth = maxHeight * this._aspect;
+                    if (newWidth > maxWidth && newHeight < maxHeight) {
+                        newWidth = maxWidth;
                     }
                     else {
-                        newHeight = newWidth / this._aspect;
-                        gameArea.style.width = newWidth + 'px';
-                        gameArea.style.height = newHeight + 'px';
+                        newHeight = maxHeight;
                     }
-                    gameArea.style.marginTop = (-newHeight / 2) + 'px';
-                    gameArea.style.marginLeft = (-newWidth / 2) + 'px';
+                    gameArea.style.width = newWidth + 'px';
+                    gameArea.style.height = newHeight + 'px';
                     this._canvas.width = newWidth;
                     this._canvas.height = newHeight;
                     TSE.gl.viewport(0, 0, newWidth, newHeight);

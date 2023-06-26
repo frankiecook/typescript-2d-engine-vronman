@@ -98,38 +98,41 @@ namespace TSE {
 					// not using an aspect ratio
 					this._projection = Matrix4x4.orthographic(0, window.innerWidth, window.innerHeight, 0, -100.0, 100.0);
 				} else {
-					let newWidth = window.innerWidth;
-					let newHeight = window.innerHeight;
-					let newWidthToHeight = newWidth / newHeight;
-					let gameArea = document.getElementById("gameArea");
+					let gameArea: HTMLElement = document.getElementById("viewport");
+                    let gameAreaContainer: HTMLElement = document.getElementById("glcanvas_container");
+                    let maxWidth: number = gameAreaContainer.clientWidth;
+                    let maxHeight: number = gameAreaContainer.clientHeight;
+
+                    // aspect is width / height ratio
+                    let newHeight: number = maxWidth / this._aspect;
+                    let newWidth: number = maxHeight * this._aspect;
 
 					// grabs the new size and associated aspect ratio
 					// calculates how big to resize the game area
 					// sets gameArea style to appropriate width and height
-					if (newWidthToHeight > this._aspect) {
-						newWidth = newHeight * this._aspect;
-						gameArea.style.height = newHeight + 'px';
-						gameArea.style.width = newWidth + 'px';
-					} else {
-						newHeight = newWidth / this._aspect;
-						gameArea.style.width = newWidth + 'px';
-						gameArea.style.height = newHeight + 'px';
-					}
-		
-					gameArea.style.marginTop = (-newHeight / 2) + 'px';
-					gameArea.style.marginLeft = (-newWidth / 2) + 'px';
+                    if (newWidth > maxWidth && newHeight < maxHeight) {
+                        // go by width
+                        newWidth = maxWidth;
+                    } else {
+                        // go by height
+                        newHeight = maxHeight;
+                    }
+
+					// set width of container
+                    gameArea.style.width = newWidth + 'px';
+                    gameArea.style.height = newHeight + 'px';
 
 					// set size of the canvas
-					this._canvas.width = newWidth;
-					this._canvas.height = newHeight;
+                    this._canvas.width = newWidth;
+                    this._canvas.height = newHeight;
 
 					// regenerate projection matrix
-					gl.viewport(0, 0, newWidth, newHeight);
-					this._projection = Matrix4x4.orthographic(0, this._gameWidth, this._gameHeight, 0, -100.0, 100.0);
+                    TSE.gl.viewport(0, 0, newWidth, newHeight);
+                    this._projection = TSE.Matrix4x4.orthographic(0, this._gameWidth, this._gameHeight, 0, -100.0, 100.0);
 
 					// resolution scale is used by input manager
-					let resolutionScale = new Vector2(newWidth / this._gameWidth, newHeight / this._gameHeight);
-					InputManager.setResolutionScale(resolutionScale);
+                    let resolutionScale: Vector2 = new Vector2(newWidth / this._gameWidth, newHeight / this._gameHeight);
+                    TSE.InputManager.setResolutionScale(resolutionScale);
 				}
 			}
 		}
